@@ -1,0 +1,175 @@
+# ============================================================
+# ALPHA İSTİHBARAT SİSTEMİ — AYARLAR
+# ============================================================
+
+system:
+  name: "Alpha İstihbarat Sistemi"
+  version: "1.0"
+  log_level: "INFO"
+  dry_run: true  # false = gerçek işlem yok, sadece sinyal
+
+# ─── SABİT İZLEME LİSTESİ ──────────────────────────────────
+# Kripto: Her zaman taranacak çift
+crypto_watchlist:
+  - BTC/USDT
+  - ETH/USDT
+  - SOL/USDT
+  - BNB/USDT
+  - AVAX/USDT
+
+# Sosyal keşif: Bu sayıda en çok bahsedilen coini otomatik ekle
+social_discovery:
+  enabled: true
+  top_n: 5  # Sosyal analizden en çok bahsedilen 5 coini ekle
+  min_mention_count: 3  # En az 3 kaynakta geçmesi lazım
+
+# BIST Hisseleri (yfinance .IS uzantısı ile)
+bist_watchlist:
+  enabled: true
+  symbols:
+    - THYAO.IS   # Türk Hava Yolları
+    - EREGL.IS   # Ereğli Demir Çelik
+    - GARAN.IS   # Garanti Bankası
+    - SASA.IS    # SASA Polyester
+    - ASELS.IS   # Aselsan
+    - KCHOL.IS   # Koç Holding
+    - BIMAS.IS   # BİM Mağazaları
+    - TUPRS.IS   # Tüpraş
+    - AKBNK.IS   # Akbank
+    - ISCTR.IS   # İş Bankası
+  # BIST 100 için XU100.IS endeks verisi de alınır
+
+# ─── ZAMAN DİLİMLERİ ────────────────────────────────────────
+timeframes:
+  primary: "4h"        # Ana sinyal TF
+  confirmation:
+    - "1d"
+    - "1h"
+  macro: "1w"
+
+# ─── TEKNİK ANALİZ PARAMETRELERİ ───────────────────────────
+technical:
+  ema_periods: [8, 21, 55, 200]
+  rsi_period: 14
+  macd:
+    fast: 12
+    slow: 26
+    signal: 9
+  bollinger:
+    period: 20
+    std: 2.0
+  stoch_rsi:
+    period: 14
+    smooth_k: 3
+    smooth_d: 3
+
+# SMC Parametreleri
+smc:
+  swing_lookback: 10        # Swing high/low için geriye bak
+  ob_confirmation_bars: 3   # Order block onay mumu sayısı
+  fvg_min_size: 0.003       # FVG minimum boyutu (%0.3)
+  liquidity_tolerance: 0.002 # Equal high/low toleransı (%0.2)
+  killzone:
+    london_open: [7, 10]    # UTC
+    ny_open: [13, 16]       # UTC
+
+# ─── SINYAL EŞİK DEĞERLERİ ──────────────────────────────────
+scoring:
+  strong_signal: 8.0    # Tam alert + trade setup
+  medium_signal: 6.0    # Alert + "dikkatli değerlendir"
+  watchlist: 4.0        # Sadece watchlist
+  # max puan dağılımı: SMC:10 + Klasik:10 + Kurumsal:7 + MTF:4 + Sosyal:6 = 37
+
+# ─── POZİSYON BOYUTLANDIRMA ─────────────────────────────────
+position_sizing:
+  account_balance: 10000  # USD — .env ile override edilebilir
+  risk_per_trade: 0.02    # %2 sabit risk
+  max_leverage: 5
+  tp_distribution:        # TP seviyelerinde pozisyon kapatma oranı
+    tp1: 0.40
+    tp2: 0.35
+    tp3: 0.25
+  tp_targets:             # Giriş fiyatından % uzaklık
+    tp1: 0.06
+    tp2: 0.14
+    tp3: 0.28
+  sl_buffer: 0.005        # OB alt sınırının %0.5 altı
+  max_sl_distance: 0.08   # Maximum SL mesafesi (>8% setup iptal)
+
+# ─── SOSYAL KATMAN ──────────────────────────────────────────
+social:
+  youtube:
+    enabled: true
+    max_videos_per_channel: 3     # Kanal başına son N video
+    max_transcript_chars: 8000    # Transkript karakter limiti
+    channels:
+      english:
+        - id: "UCRvqjQPSeaWn-uEx-w0XLIg"
+          name: "Michaël van de Poppe"
+        - id: "UCRvqjQPSeaWn-uEx-w0XLIg"
+          name: "Benjamin Cowen"
+          id: "UCTrTXgm2KEHq2La-RNPVuuQ"
+        - id: "UCTrTXgm2KEHq2La-RNPVuuQ"
+          name: "Coin Bureau"
+          id: "UCqK_GSMbpiV8spgD3ZGloSw"
+        - id: "UCqK_GSMbpiV8spgD3ZGloSw"
+          name: "Altcoin Daily"
+          id: "UCbLhGKVY-bJPcawebgtNfbw"
+      turkish: []   # Kullanıcı ekleyecek: {id: "CHANNEL_ID", name: "Kanal Adı"}
+      german: []    # Kullanıcı ekleyecek
+
+  web_sources:
+    enabled: true
+    sites:
+      - url: "https://cryptopanic.com/api/v1/posts/?auth_token=public&currencies=BTC,ETH,SOL"
+        type: "api"
+        language: "en"
+        name: "CryptoPanic"
+      - url: "https://cointelegraph.com"
+        type: "scrape"
+        language: "en"
+        name: "CoinTelegraph"
+      - url: "https://coindesk.com"
+        type: "scrape"
+        language: "en"
+        name: "CoinDesk"
+      - url: "https://btchaber.com"
+        type: "scrape"
+        language: "tr"
+        name: "BTCHaber"
+      - url: "https://kriptopara.com"
+        type: "scrape"
+        language: "tr"
+        name: "KriptoPara"
+
+# ─── ÇIKTI AYARLARI ─────────────────────────────────────────
+output:
+  email:
+    enabled: true
+    smtp_host: "smtp.gmail.com"
+    smtp_port: 587
+    send_on_strong: true    # Skor >= 8.0
+    send_on_medium: true    # Skor >= 6.0
+    send_daily_report: true
+    daily_report_hour: 8    # UTC
+
+  console:
+    enabled: true
+    colored: true
+
+  database:
+    enabled: true
+    path: "data/database/alpha.db"
+
+# ─── ZAMANLAMA ───────────────────────────────────────────────
+scheduler:
+  crypto_scan_interval_minutes: 240   # Her 4 saatte bir (4H mum kapanışı)
+  bist_scan_interval_minutes: 60      # Her 1 saatte bir
+  social_update_interval_minutes: 360 # Her 6 saatte bir
+
+# ─── CLAUDE API ─────────────────────────────────────────────
+claude:
+  model: "claude-sonnet-4-6"
+  max_tokens: 1500
+  min_score_for_synthesis: 6.0  # Bu skorun altında Claude çağrılmaz (maliyet optimizasyonu)
+  temperature: 0.1

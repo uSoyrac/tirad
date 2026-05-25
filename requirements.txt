@@ -1,0 +1,48 @@
+# Core
+python-dotenv==1.0.0
+pyyaml==6.0.1
+pandas==2.1.4
+numpy==1.26.2
+
+# Market Data
+ccxt==4.2.25
+yfinance==0.2.36
+requests==2.31.0
+
+# Technical Analysis
+pandas-ta==0.3.14b0
+scipy==1.11.4
+
+# Web Scraping
+beautifulsoup4==4.12.2
+playwright==1.40.0
+lxml==4.9.3
+
+# NLP & Sentiment
+transformers==4.36.2
+torch==2.1.2
+langdetect==1.0.9
+spacy==3.7.2
+
+# YouTube
+google-api-python-client==2.111.0
+youtube-transcript-api==0.6.2
+
+# Claude API
+anthropic==0.40.0
+
+# Scheduling
+APScheduler==3.10.4
+
+# Database
+sqlalchemy==2.0.23
+
+# Email
+# (uses built-in smtplib)
+
+# Backtesting
+backtesting==0.3.3
+
+# Utilities
+tqdm==4.66.1
+colorlog==6.8.0

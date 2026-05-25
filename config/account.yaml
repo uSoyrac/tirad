@@ -1,0 +1,7 @@
+# Hesap parametreleri — kullanıcı günceller
+account:
+  balance_usd: 10000
+  currency: "USD"
+  exchange: "binance"
+  futures_enabled: true
+  bist_balance_try: 50000  # TRY cinsinden BIST bakiyesi
