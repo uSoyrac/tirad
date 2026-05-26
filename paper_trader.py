@@ -79,10 +79,12 @@ WATCHLIST = [
 
 CANDLE_SECONDS = 4 * 3600   # 4 saat
 
-# ── TP/SL parametreleri (risk_manager ile aynı) ────────────────────
-TP1_PCT   = 0.06;  TP1_CLOSE = 0.40
-TP2_PCT   = 0.14;  TP2_CLOSE = 0.35
-TP3_PCT   = 0.28;  TP3_CLOSE = 0.25
+# ── TP/SL parametreleri — ATR tabanlı (backtest_enhanced ile tutarlı) ─
+# SL = ATR × 1.5  →  TP1 = SL mesafesi × 1.5R, TP2 = 2.5R, TP3 = 4.0R
+SL_ATR_MULT = 1.5   # SL mesafesi çarpanı
+TP1_R       = 1.5;  TP1_CLOSE = 0.40   # R:R 1.5:1 → %40 kapat
+TP2_R       = 2.5;  TP2_CLOSE = 0.35   # R:R 2.5:1 → %35 kapat
+TP3_R       = 4.0;  TP3_CLOSE = 0.25   # R:R 4.0:1 → kalan %25
 
 # ══════════════════════════════════════════════════════════════════════
 #  VERİTABANI
@@ -314,17 +316,19 @@ def _calc_position(balance: float, entry: float, sl: float,
 
     qty = notional / entry
 
+    # R-bazlı TP (backtest_enhanced ile tutarlı)
+    risk_dist = entry * sl_dist   # Mutlak risk mesafesi
     if direction == "LONG":
-        tp1 = entry * (1 + TP1_PCT)
-        tp2 = entry * (1 + TP2_PCT)
-        tp3 = entry * (1 + TP3_PCT)
+        tp1 = entry + risk_dist * TP1_R
+        tp2 = entry + risk_dist * TP2_R
+        tp3 = entry + risk_dist * TP3_R
     else:
-        tp1 = entry * (1 - TP1_PCT)
-        tp2 = entry * (1 - TP2_PCT)
-        tp3 = entry * (1 - TP3_PCT)
+        tp1 = entry - risk_dist * TP1_R
+        tp2 = entry - risk_dist * TP2_R
+        tp3 = entry - risk_dist * TP3_R
 
-    # EV kontrolü
-    blended_rr = TP1_CLOSE * (TP1_PCT / sl_dist) + TP2_CLOSE * (TP2_PCT / sl_dist)
+    # EV kontrolü (R-bazlı)
+    blended_rr = TP1_CLOSE * TP1_R + TP2_CLOSE * TP2_R
     est_wr = max(0.40, min(0.70, 0.45 + (score - 4.0) / 6.0 * 0.20))
     ev = est_wr * blended_rr - (1 - est_wr)
     if ev < -0.05:
@@ -560,7 +564,7 @@ def get_open_paper_positions_by_id(pos_id: int) -> Optional[dict]:
 
 def scan_and_open(balance: float) -> tuple:
     """Sinyalleri tara, uygun olanları kağıt pozisyon olarak aç."""
-    from live_scan import ohlcv, analyze
+    from live_scan import ohlcv, analyze, atr_fn
 
     open_pos  = get_open_paper_positions()
     open_syms = {p["symbol"] for p in open_pos}
@@ -587,11 +591,28 @@ def scan_and_open(balance: float) -> tuple:
             score = r.get("composite", 0)
             trend = r.get("trend", "NEUTRAL")
             if score >= MIN_SCORE and trend in ("BULLISH", "BEARISH"):
-                if r.get("entry_low") and r.get("sl"):
-                    signals.append(r)
-                    logger.info(f"  ✨ {symbol:12} {score:.1f}/10  {trend}")
-                else:
-                    logger.info(f"  ○  {symbol:12} {score:.1f}/10  (entry/sl eksik)")
+                # ATR tabanlı SL hesapla (backtest_enhanced ile tutarlı)
+                try:
+                    atr_val = float(atr_fn(df, 14).iloc[-2])
+                    entry = float(df["close"].iloc[-2])   # Son kapanmış mum
+                    if trend == "BULLISH":
+                        sl = entry - atr_val * SL_ATR_MULT
+                    else:
+                        sl = entry + atr_val * SL_ATR_MULT
+                    # OB/FVG mevcutsa daha iyi giriş noktası kullan
+                    if r.get("entry_low") and r.get("entry_high"):
+                        entry = (r["entry_low"] + r["entry_high"]) / 2
+                    r["_entry"] = entry
+                    r["_sl"]    = sl
+                except Exception:
+                    if not r.get("entry_low") or not r.get("sl"):
+                        logger.info(f"  ○  {symbol:12} {score:.1f}/10  (entry/sl eksik)")
+                        continue
+                    r["_entry"] = (r["entry_low"] + r["entry_high"]) / 2
+                    r["_sl"]    = r["sl"]
+
+                signals.append(r)
+                logger.info(f"  ✨ {symbol:12} {score:.1f}/10  {trend}")
             else:
                 logger.info(f"  ○  {symbol:12} {score:.1f}/10  {trend}")
         except Exception as e:
@@ -602,8 +623,8 @@ def scan_and_open(balance: float) -> tuple:
     opened = 0
 
     for sig in signals[:slots]:
-        entry  = (sig["entry_low"] + sig["entry_high"]) / 2
-        sl     = sig["sl"]
+        entry  = sig.get("_entry") or (sig["entry_low"] + sig["entry_high"]) / 2
+        sl     = sig.get("_sl") or sig["sl"]
         score  = sig["composite"]
         symbol = sig["symbol"]
 
