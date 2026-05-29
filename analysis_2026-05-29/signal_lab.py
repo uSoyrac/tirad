@@ -25,7 +25,8 @@ from repo_signals import (ema, atr_fn, order_blocks, fair_value_gaps,
                           liquidity_map, displacement, optimal_trade_entry,
                           market_structure)
 
-FEE_SIDE = 0.0009     # %0.09/taraf  (round-trip %0.18 — raporun iddiası)
+FEE_SIDE = 0.0009     # %0.09/taraf  (round-trip %0.18 — komisyon+slipaj)
+FUNDING_8H = 0.0001   # perpetual funding ~%0.01/8h (long öder varsayımı — kötümser)
 ATR_MULT = 1.5
 WARMUP   = 215
 MAX_HOLD = 48         # zaman-stop (saat)
@@ -140,7 +141,9 @@ def backtest(long_sig, short_sig, atr, op, hi, lo, cl, tp_R=2.0, lo_idx=0, hi_id
         if exit_R is None:                     # zaman-stop: kapanışta çık
             ej = min(i + MAX_HOLD, n - 1)
             exit_R = (cl[ej] - entry) / R * sign
-        net = exit_R - 2 * fee_R               # giriş+çıkış komisyonu
+        hours = max(ej - i, 1)
+        funding_R = (FUNDING_8H * hours / 8.0) / (R / entry)   # tutulan süre × funding
+        net = exit_R - 2 * fee_R - funding_R   # komisyon(2 taraf) + funding
         trades.append(net)
         i = ej + 1                             # pozisyon kapanınca devam
     return np.array(trades)
@@ -198,55 +201,77 @@ def main():
     n = len(cl); split = int(n * 0.60)
     rules = make_rules(F)
 
-    print("\n" + "═" * 104)
-    print(f"  SİNYAL ARAMA — {tag} ETH 1h, {n} bar  | TP=2R, SL=1.5×ATR, komisyon %0.18 r/t, max_hold {MAX_HOLD}h")
-    print(f"  Train = ilk %60 (in-sample),  Test = son %40 (OUT-OF-SAMPLE)")
-    print("═" * 104)
-    hdr = f"{'KURAL':26s} | {'TÜM: n':>6s} {'WR':>5s} {'expR':>6s} {'PF':>5s} || {'TRAIN expR':>10s} || {'TEST(OOS) n':>11s} {'WR':>5s} {'expR':>7s} {'PF':>5s}"
-    print(hdr); print("─" * 104)
+    print("\n" + "═" * 108)
+    print(f"  SİNYAL ARAMA — {tag} ETH 1h, {n} bar | TP=2R, SL=1.5×ATR | maliyet: komisyon+slipaj %0.18 r/t + funding")
+    print(f"  Tüm expectancy değerleri TÜM MALİYETLER SONRASI (net). Train=ilk %60, Test=son %40 (OOS)")
+    print("═" * 108)
+    hdr = (f"{'KURAL':26s} | {'TÜM n':>6s} {'WR':>5s} {'netR':>6s} || "
+           f"{'TRAIN n':>8s} {'netR':>7s} || {'TEST(OOS) n':>11s} {'WR':>5s} {'netR':>7s} {'PF':>5s}")
+    print(hdr); print("─" * 108)
 
     results = []
     for name, (ls, ss) in rules.items():
-        all_t = backtest(ls, ss, atr, op, hi, lo, cl)
-        tr_t = backtest(ls, ss, atr, op, hi, lo, cl, lo_idx=WARMUP, hi_idx=split)
-        te_t = backtest(ls, ss, atr, op, hi, lo, cl, lo_idx=split, hi_idx=n)
-        sa, st, se = stats(all_t), stats(tr_t), stats(te_t)
+        sa = stats(backtest(ls, ss, atr, op, hi, lo, cl))
+        st = stats(backtest(ls, ss, atr, op, hi, lo, cl, lo_idx=WARMUP, hi_idx=split))
+        se = stats(backtest(ls, ss, atr, op, hi, lo, cl, lo_idx=split, hi_idx=n))
         results.append((name, sa, st, se))
-        print(f"{name:26s} | {sa['n']:6d} {sa['wr']*100:4.0f}% {sa['exp']:+6.2f} {sa['pf']:5.2f} "
-              f"|| {st['exp']:+10.2f} || {se['n']:11d} {se['wr']*100:4.0f}% {se['exp']:+7.2f} {se['pf']:5.2f}")
+        print(f"{name:26s} | {sa['n']:6d} {sa['wr']*100:4.0f}% {sa['exp']:+6.2f} || "
+              f"{st['n']:8d} {st['exp']:+7.2f} || {se['n']:11d} {se['wr']*100:4.0f}% "
+              f"{se['exp']:+7.2f} {se['pf']:5.2f}")
 
-    # ── Negatif kontrol: shuffle DAĞILIMI (tek shuffle değil) + p-değeri
-    print("─" * 104)
-    busiest = max(results, key=lambda r: r[1]["n"])[0]
-    ls, ss = rules[busiest]
-    real = stats(backtest(ls, ss, atr, op, hi, lo, cl, lo_idx=split, hi_idx=n))["exp"]
+    # ════════════════════════════════════════════════════════════
+    #  4-KAPILI EDGE BARİYERİ
+    #   (a) TRAIN net expR > 0   (b) TEST net expR > 0
+    #   (d) net = tüm maliyetler (komisyon+slipaj+funding) sonrası -> zaten net
+    #   (c) 300-shuffle OOS dağılımını p<0.05 ile geçmeli
+    #  (c) yalnızca (a)&(b)&yeterli işlem geçen kurallar için hesaplanır.
+    # ════════════════════════════════════════════════════════════
+    print("\n" + "═" * 108)
+    print("  4-KAPILI EDGE BARİYERİ  [a: train>0 | b: test>0 | c: shuffle p<0.05 | d: tüm maliyetler sonrası>0]")
+    print("═" * 108)
     rng = np.random.default_rng(0)
-    sh_exps = []
-    for _ in range(300):
-        perm = rng.permutation(len(ls))
-        e = stats(backtest(ls[perm], ss[perm], atr, op, hi, lo, cl, lo_idx=split, hi_idx=n))["exp"]
-        if np.isfinite(e): sh_exps.append(e)
-    sh_exps = np.array(sh_exps)
-    pval = (sh_exps >= real).mean()
-    print(f"NEGATİF KONTROL ({busiest}, 300 shuffle): OOS expR gerçek={real:+.3f}")
-    print(f"  shuffle dağılımı: ort={sh_exps.mean():+.3f}, std={sh_exps.std():.3f}, "
-          f"%95={np.percentile(sh_exps,95):+.3f}  | p-değeri={pval:.2f}")
-    verdict = "ANLAMLI edge (p<0.05)" if pval < 0.05 else "rastgeleden AYIRT EDİLEMEZ (edge yok)"
-    print(f"  -> SONUÇ: {verdict}")
+    candidates = []
+    for name, sa, st, se in results:
+        ga = st["n"] >= 10 and st["exp"] > 0
+        gb = se["n"] >= 10 and se["exp"] > 0
+        gd = True                                  # netR zaten tüm maliyetleri içerir
+        pval = np.nan; gc = False
+        if ga and gb:                              # shuffle yalnızca a&b geçenlere (pahalı)
+            ls, ss = rules[name]
+            sh = []
+            for _ in range(300):
+                perm = rng.permutation(len(ls))
+                e = stats(backtest(ls[perm], ss[perm], atr, op, hi, lo, cl,
+                                   lo_idx=split, hi_idx=n))["exp"]
+                if np.isfinite(e): sh.append(e)
+            sh = np.array(sh)
+            pval = (sh >= se["exp"]).mean()
+            gc = pval < 0.05
+        passed = ga and gb and gc and gd
+        if passed: candidates.append((name, se, pval))
+        mark = lambda b: "✓" if b else "✗"
+        pv = f"p={pval:.3f}" if np.isfinite(pval) else "p=  — "
+        print(f"  {name:26s}  a:{mark(ga)} b:{mark(gb)} c:{mark(gc)}({pv}) d:{mark(gd)}  "
+              f"-> {'✅ EDGE ADAYI' if passed else '❌ elendi'}")
 
-    # ── Özet karar
-    print("\n" + "═" * 104)
-    pos_oos = [r for r in results if r[3]["n"] >= 15 and r[3]["exp"] > 0.03]
-    if pos_oos:
-        pos_oos.sort(key=lambda r: r[3]["exp"], reverse=True)
-        print("  ✅ OOS'te pozitif görünen kural(lar) — REEL veride doğrulanmalı:")
-        for name, _, st, se in pos_oos:
-            consistent = "tutarlı" if st["exp"] > 0 else "TRAIN'de negatif (şüpheli)"
-            print(f"     • {name}: OOS expR={se['exp']:+.2f}, n={se['n']}, train={st['exp']:+.2f} ({consistent})")
+    print("\n" + "═" * 108)
+    if candidates:
+        print("  ✅ DÖRT KAPIYI DA GEÇEN EDGE ADAYI(LARI):")
+        for name, se, pval in sorted(candidates, key=lambda c: c[1]["exp"], reverse=True):
+            print(f"     • {name}: OOS netR={se['exp']:+.3f}, n={se['n']}, "
+                  f"WR=%{se['wr']*100:.0f}, shuffle p={pval:.3f}")
+        print("     -> Bu aday(lar) walk-forward'ın FARKLI dönemlerinde + farklı")
+        print("        coinlerde de doğrulanmalı; sonra paper-trade.")
     else:
-        print("  ❌ Hiçbir kombinasyon OOS'te anlamlı pozitif edge göstermedi (komisyon sonrası).")
-        print("     -> Bu veri/sinyal setiyle 'çok işlem + pozitif edge' BİR ARADA yok.")
-    print("═" * 104)
+        print("  ❌ HİÇBİR KURAL DÖRT KAPIYI BİRDEN GEÇMEDİ -> doğrulanmış edge YOK.")
+        print("     Bu bir BAŞARISIZLIK DEĞİL: gerçek paranı sahte bir sisteme")
+        print("     yatırmaktan korur. Edge'i sinyalde aramaya devam (çoklu-TF,")
+        print("     funding/CVD filtresi, rejim filtresi, asimetrik R:R).")
+    print("═" * 108)
+    print(f"  [VERİ KAYNAĞI: {tag}]  " +
+          ("Bu GERÇEK veridir." if tag == "REEL" else
+           "Bu SENTETİK kuru-çalıştırmadır; gerçek karar için fetch_real_data.py ile REEL veride çalıştırın."))
+    print("═" * 108)
     return df, tag, F, results
 
 

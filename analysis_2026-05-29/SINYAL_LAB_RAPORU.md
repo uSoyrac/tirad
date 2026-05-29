@@ -26,7 +26,7 @@ Bu bulut ortamının ağ politikası **tüm borsaları + veri sağlayıcıları 
 
 - Karar bar *t* **kapanışında**, sadece `df[:t+1]` ile verilir. İşleme **bir sonraki mum (t+1) açılışında** girilir → geleceği görmek imkânsız.
 - Repo'nun **gerçek** SMC fonksiyonları (`repo_signals.py`, `live_scan.py`'den birebir) walk-forward ile her bar yeniden hesaplanır.
-- Komisyon+slipaj %0.18 round-trip. SL=1.5×ATR (1R), TP=2R, 48h zaman-stop. Tek pozisyon.
+- **Tüm maliyetler dahil:** komisyon+slipaj %0.18 round-trip **+ funding (~%0.01/8h, long öder varsayımı)**. SL=1.5×ATR (1R), TP=2R, 48h zaman-stop. Tek pozisyon. Tüm expectancy değerleri **net** (maliyet sonrası).
 - **Train** = ilk %60 (in-sample), **Test** = son %40 (**out-of-sample / OOS**).
 
 ---
@@ -55,6 +55,33 @@ Bu bulut ortamının ağ politikası **tüm borsaları + veri sağlayıcıları 
 En çok işlem üreten kural (EMA+Sweep) OOS expR = **+0.103**. Sinyalleri 300 kez karıştırınca (shuffle) oluşan dağılım: ort=−0.05, %95 dilim=+0.177. **p-değeri = 0.13.**
 
 > **Sonuç: +0.103 değeri rastgeleden istatistiksel olarak AYIRT EDİLEMEZ (p>0.05). Edge yok.** Eğer sadece OOS'e bakıp "6 kazanan strateji buldum" deseydiniz — ki orijinal rapor pratikte bunu yaptı — **saf şansı edge sanardınız.** Bu, overfitting / çoklu-karşılaştırma tuzağıdır.
+
+---
+
+## 3.5. 🚦 4-Kapılı Edge Bariyeri (onaylanmış prosedür)
+
+Bir kural **ancak şu dört kapının HEPSİNİ** geçerse "edge adayı" sayılır; biri bile eksikse edge **yoktur**:
+
+| Kapı | Şart | Amaç |
+|------|------|------|
+| (a) | TRAIN (in-sample) net expR > 0 | Geçmişte çalışmış olmalı |
+| (b) | TEST (OOS) net expR > 0 | Görülmemiş veride de çalışmalı (train↔test tutarlılığı) |
+| (c) | 300-shuffle OOS dağılımını **p < 0.05** ile geçmeli | Sonuç şanstan ayrışmalı |
+| (d) | **Tüm maliyetler** (komisyon+slipaj+**funding**) sonrası hâlâ > 0 | Gerçek dünyada kâr bırakmalı |
+
+> Verimlilik için (c) shuffle testi yalnızca (a)&(b)&(d)'yi geçen kurallara uygulanır.
+
+### Kuru-çalıştırma sonucu (SENTETİK veri — framework doğrulaması)
+
+```
+KURAL                    a       b       c        d     SONUÇ
+S3: EMA+OB              ✗       ✓       —        ✓     ❌ elendi
+EMA+FVG                 ✗       ✓       —        ✓     ❌ elendi
+MS+OB                   ✗       ✓       —        ✓     ❌ elendi
+... (12 kuralın tamamı) ✗ ...                          ❌ elendi
+```
+
+**Sonuç: hiçbir kural dört kapıyı birden geçmedi → doğrulanmış edge YOK.** Dikkat: OOS'te pozitif görünen (b:✓) tüm kurallar **gate (a)'da elendi** — yani train'de negatiflerdi. Bariyer, sahte edge'i ilk kapıda yakaladı; shuffle'a gerek bile kalmadı. **Framework "edge yok"u doğru tespit ediyor.**
 
 ---
 

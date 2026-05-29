@@ -1,35 +1,46 @@
 [VERİ] SENTETİK ETH-benzeri 1h, ~4 ay (2880 bar)  [borsalar allowlist dışı; gerçek veri için data_eth_1h.csv koyun]
 [FEATURE] cache'ten yüklendi
 
-════════════════════════════════════════════════════════════════════════════════════════════════════════
-  SİNYAL ARAMA — SENTETİK ETH 1h, 2880 bar  | TP=2R, SL=1.5×ATR, komisyon %0.18 r/t, max_hold 48h
-  Train = ilk %60 (in-sample),  Test = son %40 (OUT-OF-SAMPLE)
-════════════════════════════════════════════════════════════════════════════════════════════════════════
-KURAL                      | TÜM: n    WR   expR    PF || TRAIN expR || TEST(OOS) n    WR    expR    PF
-────────────────────────────────────────────────────────────────────────────────────────────────────────
-S3: EMA+OB                 |    221   35%  -0.07  0.91 ||      -0.17 ||          93   41%   +0.10  1.15
-Saf OB                     |    226   33%  -0.11  0.84 ||      -0.18 ||          96   38%   -0.00  1.00
-EMA+FVG                    |    229   37%  -0.01  0.99 ||      -0.14 ||         102   43%   +0.17  1.27
-EMA+OB+FVG                 |    210   36%  -0.03  0.96 ||      -0.12 ||          91   42%   +0.12  1.19
-EMA+Sweep                  |    237   35%  -0.07  0.90 ||      -0.19 ||         106   41%   +0.10  1.16
-EMA+Disp                   |      0  nan%   +nan   nan ||       +nan ||           0  nan%    +nan   nan
-EMA+OTE                    |     63   29%  -0.24  0.69 ||      -0.39 ||          25   36%   -0.02  0.98
-MS+OB                      |    107   39%  +0.08  1.12 ||      -0.10 ||          51   47%   +0.31  1.54
-BOS+OB                     |      0  nan%   +nan   nan ||       +nan ||           0  nan%    +nan   nan
-Sweep+OB                   |    225   32%  -0.15  0.80 ||      -0.22 ||          96   36%   -0.02  0.97
-EMA+RSI                    |     59   32%  -0.13  0.82 ||      -0.04 ||          28   29%   -0.24  0.69
-Konfluens(OB+FVG+Sweep)    |    218   35%  -0.05  0.93 ||      -0.15 ||          92   41%   +0.11  1.17
-────────────────────────────────────────────────────────────────────────────────────────────────────────
-NEGATİF KONTROL (EMA+Sweep, 300 shuffle): OOS expR gerçek=+0.103
-  shuffle dağılımı: ort=-0.050, std=0.131, %95=+0.177  | p-değeri=0.13
-  -> SONUÇ: rastgeleden AYIRT EDİLEMEZ (edge yok)
+════════════════════════════════════════════════════════════════════════════════════════════════════════════
+  SİNYAL ARAMA — SENTETİK ETH 1h, 2880 bar | TP=2R, SL=1.5×ATR | maliyet: komisyon+slipaj %0.18 r/t + funding
+  Tüm expectancy değerleri TÜM MALİYETLER SONRASI (net). Train=ilk %60, Test=son %40 (OOS)
+════════════════════════════════════════════════════════════════════════════════════════════════════════════
+KURAL                      |  TÜM n    WR   netR ||  TRAIN n    netR || TEST(OOS) n    WR    netR    PF
+────────────────────────────────────────────────────────────────────────────────────────────────────────────
+S3: EMA+OB                 |    221   35%  -0.07 ||      129   -0.18 ||          93   41%   +0.09  1.14
+Saf OB                     |    226   33%  -0.12 ||      131   -0.19 ||          96   38%   -0.01  0.99
+EMA+FVG                    |    229   37%  -0.02 ||      128   -0.14 ||         102   43%   +0.16  1.26
+EMA+OB+FVG                 |    210   36%  -0.03 ||      120   -0.13 ||          91   42%   +0.12  1.18
+EMA+Sweep                  |    237   35%  -0.08 ||      132   -0.20 ||         106   41%   +0.10  1.15
+EMA+Disp                   |      0  nan%   +nan ||        0    +nan ||           0  nan%    +nan   nan
+EMA+OTE                    |     63   29%  -0.25 ||       38   -0.39 ||          25   36%   -0.02  0.97
+MS+OB                      |    107   39%  +0.07 ||       57   -0.10 ||          51   47%   +0.31  1.52
+BOS+OB                     |      0  nan%   +nan ||        0    +nan ||           0  nan%    +nan   nan
+Sweep+OB                   |    225   32%  -0.16 ||      129   -0.23 ||          96   36%   -0.03  0.96
+EMA+RSI                    |     59   32%  -0.14 ||       31   -0.04 ||          28   29%   -0.25  0.69
+Konfluens(OB+FVG+Sweep)    |    218   35%  -0.06 ||      127   -0.16 ||          92   41%   +0.10  1.16
 
-════════════════════════════════════════════════════════════════════════════════════════════════════════
-  ✅ OOS'te pozitif görünen kural(lar) — REEL veride doğrulanmalı:
-     • MS+OB: OOS expR=+0.31, n=51, train=-0.10 (TRAIN'de negatif (şüpheli))
-     • EMA+FVG: OOS expR=+0.17, n=102, train=-0.14 (TRAIN'de negatif (şüpheli))
-     • EMA+OB+FVG: OOS expR=+0.12, n=91, train=-0.12 (TRAIN'de negatif (şüpheli))
-     • Konfluens(OB+FVG+Sweep): OOS expR=+0.11, n=92, train=-0.15 (TRAIN'de negatif (şüpheli))
-     • EMA+Sweep: OOS expR=+0.10, n=106, train=-0.19 (TRAIN'de negatif (şüpheli))
-     • S3: EMA+OB: OOS expR=+0.10, n=93, train=-0.17 (TRAIN'de negatif (şüpheli))
-════════════════════════════════════════════════════════════════════════════════════════════════════════
+════════════════════════════════════════════════════════════════════════════════════════════════════════════
+  4-KAPILI EDGE BARİYERİ  [a: train>0 | b: test>0 | c: shuffle p<0.05 | d: tüm maliyetler sonrası>0]
+════════════════════════════════════════════════════════════════════════════════════════════════════════════
+  S3: EMA+OB                  a:✗ b:✓ c:✗(p=  — ) d:✓  -> ❌ elendi
+  Saf OB                      a:✗ b:✗ c:✗(p=  — ) d:✓  -> ❌ elendi
+  EMA+FVG                     a:✗ b:✓ c:✗(p=  — ) d:✓  -> ❌ elendi
+  EMA+OB+FVG                  a:✗ b:✓ c:✗(p=  — ) d:✓  -> ❌ elendi
+  EMA+Sweep                   a:✗ b:✓ c:✗(p=  — ) d:✓  -> ❌ elendi
+  EMA+Disp                    a:✗ b:✗ c:✗(p=  — ) d:✓  -> ❌ elendi
+  EMA+OTE                     a:✗ b:✗ c:✗(p=  — ) d:✓  -> ❌ elendi
+  MS+OB                       a:✗ b:✓ c:✗(p=  — ) d:✓  -> ❌ elendi
+  BOS+OB                      a:✗ b:✗ c:✗(p=  — ) d:✓  -> ❌ elendi
+  Sweep+OB                    a:✗ b:✗ c:✗(p=  — ) d:✓  -> ❌ elendi
+  EMA+RSI                     a:✗ b:✗ c:✗(p=  — ) d:✓  -> ❌ elendi
+  Konfluens(OB+FVG+Sweep)     a:✗ b:✓ c:✗(p=  — ) d:✓  -> ❌ elendi
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════════
+  ❌ HİÇBİR KURAL DÖRT KAPIYI BİRDEN GEÇMEDİ -> doğrulanmış edge YOK.
+     Bu bir BAŞARISIZLIK DEĞİL: gerçek paranı sahte bir sisteme
+     yatırmaktan korur. Edge'i sinyalde aramaya devam (çoklu-TF,
+     funding/CVD filtresi, rejim filtresi, asimetrik R:R).
+════════════════════════════════════════════════════════════════════════════════════════════════════════════
+  [VERİ KAYNAĞI: SENTETİK]  Bu SENTETİK kuru-çalıştırmadır; gerçek karar için fetch_real_data.py ile REEL veride çalıştırın.
+════════════════════════════════════════════════════════════════════════════════════════════════════════════
