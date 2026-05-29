@@ -109,6 +109,97 @@ def order_blocks(df, n=3):
     return bull_obs[:3], bear_obs[:3]
 
 
+# ─── live_scan.py:299 — Fair Value Gaps ─────────────────────────
+def fair_value_gaps(df, min_pct=0.002):
+    h = df["high"].values; l = df["low"].values; v = df["volume"].values
+    c = df["close"].values
+    bull_fvg = []; bear_fvg = []
+    for i in range(2, min(120, len(df) - 1)):
+        idx = -(i + 1)
+        c1h = h[idx - 1]; c3l = l[idx + 1]; c1l = l[idx - 1]; c3h = h[idx + 1]
+        if c3l > c1h:
+            sz = (c3l - c1h) / c1h
+            if sz >= min_pct:
+                recent_lows = l[idx + 2:]; filled = any(x <= c1h for x in recent_lows)
+                bull_fvg.append({"low": c1h, "high": c3l, "mid": (c1h + c3l) / 2,
+                                 "bars_ago": i, "filled": filled})
+        if c3h < c1l:
+            sz = (c1l - c3h) / c1l
+            if sz >= min_pct:
+                recent_highs = h[idx + 2:]; filled = any(x >= c1l for x in recent_highs)
+                bear_fvg.append({"low": c3h, "high": c1l, "mid": (c3h + c1l) / 2,
+                                 "bars_ago": i, "filled": filled})
+    bull_fvg.sort(key=lambda x: x["bars_ago"]); bear_fvg.sort(key=lambda x: x["bars_ago"])
+    return [f for f in bull_fvg if not f["filled"]][:4], [f for f in bear_fvg if not f["filled"]][:4]
+
+
+# ─── live_scan.py:329 — Liquidity Map (sweep) ────────────────────
+def liquidity_map(df, tol=0.0025, lb=40):
+    h = df["high"].values[-lb:]; l = df["low"].values[-lb:]; c = df["close"].values[-lb:]
+    bsl_levels = []; ssl_levels = []
+    for i in range(len(h) - 4):
+        for j in range(i + 2, len(h) - 2):
+            if abs(h[i] - h[j]) / h[i] < tol:
+                eq = (h[i] + h[j]) / 2
+                swept = any(h[k] > eq * (1 + tol) for k in range(j + 1, len(h)))
+                bsl_levels.append({"level": eq, "swept": swept, "bars_ago": len(h) - j})
+    for i in range(len(l) - 4):
+        for j in range(i + 2, len(l) - 2):
+            if abs(l[i] - l[j]) / l[i] < tol:
+                eq = (l[i] + l[j]) / 2
+                swept = any(l[k] < eq * (1 - tol) for k in range(j + 1, len(l)))
+                ssl_levels.append({"level": eq, "swept": swept, "bars_ago": len(l) - j})
+    bsl_clean = []; ssl_clean = []
+    for b in sorted(bsl_levels, key=lambda x: x["bars_ago"]):
+        if not any(abs(b["level"] - x["level"]) / b["level"] < tol for x in bsl_clean):
+            bsl_clean.append(b)
+    for s in sorted(ssl_levels, key=lambda x: x["bars_ago"]):
+        if not any(abs(s["level"] - x["level"]) / s["level"] < tol for x in ssl_clean):
+            ssl_clean.append(s)
+    recent_h = h[-6:-1]; recent_l = l[-6:-1]; recent_c = c[-6:-1]
+    sweep_up = sweep_down = False
+    for b in bsl_clean:
+        if any(x > b["level"] * (1 + tol) for x in recent_h) and any(cc < b["level"] for cc in recent_c):
+            sweep_up = True
+    for s in ssl_clean:
+        if any(x < s["level"] * (1 - tol) for x in recent_l) and any(cc > s["level"] for cc in recent_c):
+            sweep_down = True
+    return sweep_up, sweep_down
+
+
+# ─── live_scan.py:381 — Displacement ─────────────────────────────
+def displacement(df, multiplier=2.5):
+    c = df["close"]; o = df["open"]
+    atr = atr_fn(df, 14)
+    body = ((c - o).abs()).shift(1)
+    atr_s = atr.shift(1)
+    last_5_bodies = body.iloc[-6:-1]; last_5_atr = atr_s.iloc[-6:-1]
+    disp_up = disp_down = False
+    for i in range(len(last_5_bodies)):
+        if last_5_atr.iloc[i] > 0 and last_5_bodies.iloc[i] > last_5_atr.iloc[i] * multiplier:
+            if c.iloc[-(6 - i)] > o.iloc[-(6 - i)]:
+                disp_up = True
+            else:
+                disp_down = True
+    return disp_up, disp_down
+
+
+# ─── live_scan.py:401 — Optimal Trade Entry (Fib 0.62-0.79) ──────
+def optimal_trade_entry(df, lb=50):
+    h = df["high"].iloc[-lb:-1]; l = df["low"].iloc[-lb:-1]; c = df["close"]
+    if len(h) < 5:
+        return False, False
+    cp = float(c.iloc[-2])
+    swing_high = float(h.max()); swing_low = float(l.min())
+    rng = swing_high - swing_low
+    if rng <= 0:
+        return False, False
+    fib62 = swing_high - rng * 0.618; fib79 = swing_high - rng * 0.786
+    bull_ote = fib79 <= cp <= fib62
+    bear_ote = (swing_low + rng * 0.618) <= cp <= (swing_low + rng * 0.786)
+    return bull_ote, bear_ote
+
+
 # ─── S3 sinyali (rapor §3.1): EMA200 trend + taze Order Block ───
 def s3_signal(df_slice):
     """

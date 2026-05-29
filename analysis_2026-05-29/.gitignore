@@ -1,1 +1,3 @@
 __pycache__/
+features_cache.npz
+data_eth_1h.csv

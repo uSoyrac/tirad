@@ -1,0 +1,35 @@
+[VERİ] SENTETİK ETH-benzeri 1h, ~4 ay (2880 bar)  [borsalar allowlist dışı; gerçek veri için data_eth_1h.csv koyun]
+[FEATURE] cache'ten yüklendi
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════
+  SİNYAL ARAMA — SENTETİK ETH 1h, 2880 bar  | TP=2R, SL=1.5×ATR, komisyon %0.18 r/t, max_hold 48h
+  Train = ilk %60 (in-sample),  Test = son %40 (OUT-OF-SAMPLE)
+════════════════════════════════════════════════════════════════════════════════════════════════════════
+KURAL                      | TÜM: n    WR   expR    PF || TRAIN expR || TEST(OOS) n    WR    expR    PF
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+S3: EMA+OB                 |    221   35%  -0.07  0.91 ||      -0.17 ||          93   41%   +0.10  1.15
+Saf OB                     |    226   33%  -0.11  0.84 ||      -0.18 ||          96   38%   -0.00  1.00
+EMA+FVG                    |    229   37%  -0.01  0.99 ||      -0.14 ||         102   43%   +0.17  1.27
+EMA+OB+FVG                 |    210   36%  -0.03  0.96 ||      -0.12 ||          91   42%   +0.12  1.19
+EMA+Sweep                  |    237   35%  -0.07  0.90 ||      -0.19 ||         106   41%   +0.10  1.16
+EMA+Disp                   |      0  nan%   +nan   nan ||       +nan ||           0  nan%    +nan   nan
+EMA+OTE                    |     63   29%  -0.24  0.69 ||      -0.39 ||          25   36%   -0.02  0.98
+MS+OB                      |    107   39%  +0.08  1.12 ||      -0.10 ||          51   47%   +0.31  1.54
+BOS+OB                     |      0  nan%   +nan   nan ||       +nan ||           0  nan%    +nan   nan
+Sweep+OB                   |    225   32%  -0.15  0.80 ||      -0.22 ||          96   36%   -0.02  0.97
+EMA+RSI                    |     59   32%  -0.13  0.82 ||      -0.04 ||          28   29%   -0.24  0.69
+Konfluens(OB+FVG+Sweep)    |    218   35%  -0.05  0.93 ||      -0.15 ||          92   41%   +0.11  1.17
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+NEGATİF KONTROL (EMA+Sweep, 300 shuffle): OOS expR gerçek=+0.103
+  shuffle dağılımı: ort=-0.050, std=0.131, %95=+0.177  | p-değeri=0.13
+  -> SONUÇ: rastgeleden AYIRT EDİLEMEZ (edge yok)
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════
+  ✅ OOS'te pozitif görünen kural(lar) — REEL veride doğrulanmalı:
+     • MS+OB: OOS expR=+0.31, n=51, train=-0.10 (TRAIN'de negatif (şüpheli))
+     • EMA+FVG: OOS expR=+0.17, n=102, train=-0.14 (TRAIN'de negatif (şüpheli))
+     • EMA+OB+FVG: OOS expR=+0.12, n=91, train=-0.12 (TRAIN'de negatif (şüpheli))
+     • Konfluens(OB+FVG+Sweep): OOS expR=+0.11, n=92, train=-0.15 (TRAIN'de negatif (şüpheli))
+     • EMA+Sweep: OOS expR=+0.10, n=106, train=-0.19 (TRAIN'de negatif (şüpheli))
+     • S3: EMA+OB: OOS expR=+0.10, n=93, train=-0.17 (TRAIN'de negatif (şüpheli))
+════════════════════════════════════════════════════════════════════════════════════════════════════════

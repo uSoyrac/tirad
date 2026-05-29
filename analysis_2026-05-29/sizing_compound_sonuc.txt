@@ -1,0 +1,27 @@
+══════════════════════════════════════════════════════════════════════════════
+  (A) ÖLÇÜLEN SMC EDGE — kural 'EMA+Sweep' (komisyonlu, look-ahead'siz)
+  n=237, WR=%35, expectancy=-0.069R, PF=0.90 | Tam-Kelly f*=0.0%
+══════════════════════════════════════════════════════════════════════════════
+  Bileşik büyüme (237 işlem, $100, 10k yol bootstrap):
+  şema           medyan $   %5 dilim   %95 dilim   iflas%
+  fixed1               83         58         118     0.0%
+  fixed2               65         32         131     0.1%
+  halfkelly           100        100         100     0.0%
+  paroli               46         15         154     6.2%
+  lev_grow             54         24         139     0.7%
+  -> Edge ~0/negatif: TÜM şemalar $100'un ALTINA iner. Bileşik faiz,
+     negatif edge'i pozitife çeviremez; eskalasyon iflası hızlandırır.
+══════════════════════════════════════════════════════════════════════════════
+  (B) REFERANS: GERÇEKÇİ-İYİ edge olsaydı (%45 WR, +1.5R / -1R, exp≈+0.10R)
+  n=400, WR=%48, expectancy=+0.168R, PF=1.31 | Tam-Kelly f*=11.3%
+══════════════════════════════════════════════════════════════════════════════
+  Bileşik büyüme (400 işlem, $100, 10k yol bootstrap):
+  şema           medyan $   %5 dilim   %95 dilim   iflas%
+  fixed1              189        124         282     0.0%
+  fixed2              337        144         747     0.0%
+  halfkelly         1,638        152      15,358     0.3%
+  paroli              571        118       2,958     0.0%
+  lev_grow            487        137       2,085     0.0%
+  -> Gerçek edge'te: en yüksek MEDYAN genelde agresif şemada AMA en iyi
+     RİSK-AYARLI sonuç (yüksek %5-dilim + düşük iflas) HALF-KELLY'de.
+     Paroli/kaldıraç-büyütme %5-dilimi düşürür, iflas riskini artırır.
