@@ -1,0 +1,82 @@
+
+======================================================================
+  RAPORUN İÇ MATEMATİĞİNİN DENETİMİ
+======================================================================
+
+──────────────────────────────────────────────────────────────────────
+1) KELLY KRİTERİ İDDİASI (rapor §7.1)
+──────────────────────────────────────────────────────────────────────
+  Rapor formülü f* = (p·b − q)/b = (0.9·2.35 − 0.1)/2.35 = 0.857 = %85.7
+  -> Raporun verdiği %85.7 ARİTMETİK OLARAK DOĞRU.
+
+  ANCAK iki ciddi yorum hatası var:
+  (a) Bu Kelly, 'tek kazanç/kayıp' (Bernoulli) modeli içindir. Botun
+      kademeli TP'leri (R'leri farklı 3 çıkış) ile uyumsuz; b=2.35
+      ağırlıklı ortalama R sayılıp tek-sonuç gibi kullanılmış -> yanlış model.
+  (b) %85.7 risk, p=%90 kazanma 'GERÇEK' ise geçerli. p hatalıysa
+      (look-ahead ile şişmişse) Kelly de tamamen çöker.
+
+  Kelly'nin gerçek kazanma oranına duyarlılığı (b=2.35 sabit):
+    p=%90 -> f*=%85.7
+    p=%75 -> f*=%64.4
+    p=%60 -> f*=%43.0
+    p=%55 -> f*=%35.9
+    p=%50 -> f*=%28.7
+    p=%45 -> f*=%21.6
+  Yorum: p %90'dan %55'e düşerse Kelly %36'ya iner; edge yoksa negatif.
+
+──────────────────────────────────────────────────────────────────────
+2) GEOMETRİK BÜYÜME İDDİASI (rapor §7.2)
+──────────────────────────────────────────────────────────────────────
+  G = (1+0.05·2.35)^0.9 · (1−0.05)^0.1 = 1.0995  (işlem başı geom. ort.)
+  136 işlemde: $100 · 1.0995^136 = $40,044,136
+  -> Rapor 'gerçek $78K, geom. ort. sadece $37K' diyor ve aradaki
+     farkı 'ORP kurtarma mekanizması' ile açıklıyor.
+
+  HATA: Geometrik ortalama, bir stratejinin uzun-vade büyüme oranının
+  ÜST SINIRIDIR (Kelly/ergodisite teoremi). Hiçbir 'kurtarma' (martingale)
+  mekanizması beklenen geometrik büyümeyi AŞAMAZ; sadece varyansı ve
+  iflas riskini artırır. '$37K teori < $78K gerçek' ifadesi, sonucun
+  edge'den değil ölçüm hatasından geldiğinin bir işaretidir.
+
+──────────────────────────────────────────────────────────────────────
+3) 'LİKİDASYON İMKANSIZ' İDDİASI (rapor §7.4)
+──────────────────────────────────────────────────────────────────────
+  Rapor: '5x kaldıraçta likidasyon için fiyat %20 ters gitmeli, SL ise
+  ortalama %2 — yani likidasyon matematiksel olarak imkansız.'
+
+  HATA: SL 'tetiklenir' ≠ SL 'o fiyattan dolar'. Flash-crash / gap /
+  düşük likiditede fiyat SL'i ATLAR (slippage). %20'lik tek mumluk
+  hareketler kriptoda nadir değildir (örn. çöküş günleri). Ayrıca
+  'ortalama %2 SL' yanıltıcı; raporun kendi guard'ı SL'e %10'a kadar
+  izin veriyor -> 5x'te %10 SL, %20 likidasyona sadece 2 kat uzakta.
+  '0 likidasyon' ampirik kanıtı da look-ahead'li backtest'ten geliyor.
+
+──────────────────────────────────────────────────────────────────────
+4) PAROLI / MONTE CARLO İDDİASI (rapor §5.3) — $916 MİLYAR
+──────────────────────────────────────────────────────────────────────
+  Rapor, Paroli ile 400 işlemde medyan $411B 'kanıtlıyor'. Bunu kendi
+  Monte Carlo'sunda p=%90 kazanma + pozitif R varsayarak üretiyor.
+  Sorgu: edge GERÇEKÇİ olursa (p düşük), Paroli ne yapar?
+
+  p=%90: medyan $41,412,496,634,398,592  ortalama $7.22e+16  iflas oranı %0.0
+  p=%55: medyan $5,629,346  ortalama $1.67e+07  iflas oranı %0.0
+  p=%50: medyan $362,466  ortalama $1.05e+06  iflas oranı %0.0
+  p=%45: medyan $33,315  ortalama $8.93e+04  iflas oranı %0.0
+
+  Yorum: Astronomik rakamlar SADECE p=%90 varsayımının ürünüdür.
+  p gerçekçi (%50-55) olduğunda Paroli'nin beklendiği gibi medyanı
+  düşer ve iflas riski patlar. $916B bir 'kanıt' değil, hatalı
+  girdinin (şişirilmiş win-rate) üstel olarak büyütülmüş halidir.
+
+──────────────────────────────────────────────────────────────────────
+5) ORP SİSTEMİ ASLINDA NEDİR? (rapor §3.2)
+──────────────────────────────────────────────────────────────────────
+  ORP: required_risk = max(equity·0.025, (hedef − equity)/1.5)
+  Yani kayıptan sonra hedefin gerisine düşülünce RİSK ARTIRILIR.
+  -> Bu bir MARTINGALE/hedef-takipli kurtarma sistemidir.
+  Beklenen değeri negatif/sıfır olan bir oyunda martingale, iflas
+  olasılığını artırır; pozitif edge'i olan oyunda ise Kelly'nin
+  altında/üstünde sapma yaratıp geometrik büyümeyi DÜŞÜRÜR.
+  '%15 ruin guard' iflası geciktirir ama edge yoksa engelleyemez.
+

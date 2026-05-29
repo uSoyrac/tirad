@@ -1,0 +1,18 @@
+REJIM      MOD             işlem fill_yok     WR   ortR     PF       çarpan   maxDD
+──────────────────────────────────────────────────────────────────────────────────────────
+realistic  buggy_repo       1249        0    94%  +2.07  33.08 8716494084918721118208.0x    6.2%
+realistic  honest_limit      181     1893    45%  +0.07   1.11         1.2x   34.8%
+realistic  honest_market     447        0    40%  -0.09   0.86         0.4x   78.1%
+
+bull       buggy_repo       1082        0    93%  +1.99  26.79 1822018358430768640.0x    6.2%
+bull       honest_limit      199     1705    38%  -0.14   0.79         0.5x   51.8%
+bull       honest_market     447        0    41%  -0.12   0.82         0.3x   79.9%
+
+bear       buggy_repo       1329        0    95%  +2.11  39.07 568336061619484313518080.0x    5.1%
+bear       honest_limit      180     1880    46%  +0.05   1.09         1.1x   33.5%
+bear       honest_market     461        0    41%  -0.06   0.90         0.5x   79.5%
+
+chop       buggy_repo       1233        0    94%  +2.04  31.98 2296842647412626948096.0x    6.3%
+chop       honest_limit      174     1845    47%  +0.08   1.13         1.2x   28.5%
+chop       honest_market     449        0    40%  -0.12   0.82         0.3x   83.7%
+
