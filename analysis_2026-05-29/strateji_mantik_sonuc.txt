@@ -1,0 +1,80 @@
+
+██████████████████████████████████████████████████████████████████████
+  STRATEJİ MANTIĞININ SAYISAL DENETİMİ
+██████████████████████████████████████████████████████████████████████
+
+══════════════════════════════════════════════════════════════════════
+1) '%2/işlem, 365 işlemde $137K' GERÇEKÇİ Mİ?
+══════════════════════════════════════════════════════════════════════
+  Aritmetik doğru: $100 × 1.02^365 = $137,741
+
+  AMA bu, HER işlemin net +%2 (ana para üzerinde) getirmesi demek.
+  +%2/işlem net = +1R expectancy (risk %2 ise). Yani PRATİKTE
+  hiç kaybetmemek gerekir. Gerekli win-rate (L=1R, çeşitli W):
+    W=1R ödül için gereken win-rate = %100
+    W=2R ödül için gereken win-rate = %67
+    W=3R ödül için gereken win-rate = %50
+  -> +%2/işlem hedefi, ancak look-ahead'li backtest'te 'görünür'.
+
+  365 işlemde beklenen EN UZUN KAYIP SERİSİ (win-rate'e göre):
+    win-rate %55: ~7.1 ardışık kayıp BEKLENİR
+    win-rate %70: ~4.7 ardışık kayıp BEKLENİR
+    win-rate %80: ~3.5 ardışık kayıp BEKLENİR
+    win-rate %90: ~2.5 ardışık kayıp BEKLENİR
+  -> '%80 win-rate'te bile bir yerde ~4 ardışık kayıp normaldir.
+
+══════════════════════════════════════════════════════════════════════
+2) BOYUTLANDIRMA EDGE YARATIR MI? (Fixed vs Paroli vs Fibonacci)
+══════════════════════════════════════════════════════════════════════
+
+  ▶ POZİTİF edge (p=55%, W=1, L=1, E=+0.10R)
+    şema             medyan $        ort $   iflas%  ort.maxDD
+    fixed                 172          183     0.0%      22.4%
+    paroli                226          299     0.0%      43.0%
+    fib_on_win            186          316     0.0%      43.2%
+
+  ▶ SIFIR/NEG edge + komisyon (p=50%, W=0.95, L=1, E=-0.03R)
+    şema             medyan $        ort $   iflas%  ort.maxDD
+    fixed                  81           86     0.0%      38.4%
+    paroli                 61           77     0.3%      62.0%
+    fib_on_win             57           77     0.0%      61.7%
+
+  ▶ KULLANICININ HAYALİ: yüksek WR/küçük R (p=80%, W=0.25, L=1, E=0)
+    şema             medyan $        ort $   iflas%  ort.maxDD
+    fixed                  98          100     0.0%      19.1%
+    paroli                 92          100     0.0%      40.7%
+    fib_on_win             68          102     0.4%      65.5%
+
+  YORUM:
+  • Boyutlandırma işlem başı EXPECTANCY'yi DEĞİŞTİRMEZ; sadece riski
+    artırıp/azaltıp dağılımı (varyans, drawdown, iflas) değiştirir.
+  • Pozitif edge'te: Paroli/Fib daha yüksek getiri verebilir AMA bu
+    BEDAVA değil — drawdown ~%22'den ~%43'e fırlıyor (daha çok risk).
+    Aynı sonucu Fixed risk'i artırarak da alırsınız; 'sihir' yok.
+  • Edge SIFIR/NEGATİFse (sizin gerçek durumunuz): HİÇBİR şema kurtarmaz;
+    eskalasyon medyanı DÜŞÜRÜR ve iflas riski yaratır.
+  • KULLANICININ HAYALİ satırına dikkat: %80 win-rate olsa BİLE, küçük R
+    (E=0) + Fibonacci eskalasyon -> medyan $100'den $68'e DÜŞÜYOR,
+    drawdown %65, hatta iflas. 'Kazançta büyüt' biriken kârı tam
+    tepede gelen tek kayba teslim eder.
+
+══════════════════════════════════════════════════════════════════════
+3) WIN-RATE BİR HEDEF DEĞİL, BİR AYAR DÜĞMESİDİR
+══════════════════════════════════════════════════════════════════════
+  expectancy = p·W − (1−p)·L   (L=1R sabit)
+   win-rate   W=0.25R    W=0.5R      W=1R      W=2R      W=3R
+  %     40     -0.50     -0.40     -0.20     +0.20     +0.60
+  %     50     -0.38     -0.25     +0.00     +0.50     +1.00
+  %     60     -0.25     -0.10     +0.20     +0.80     +1.40
+  %     70     -0.13     +0.05     +0.40     +1.10     +1.80
+  %     80     +0.00     +0.20     +0.60     +1.40     +2.20
+  %     90     +0.13     +0.35     +0.80     +1.70     +2.60
+
+  • %80 win-rate + W=0.25R  -> E=0.00 (komisyonla NEGATİF). KAYBEDEN.
+  • %45 win-rate + W=2R     -> E=+0.35R. KAZANAN.
+  -> Win-rate'i istediğiniz kadar yükseltebilirsiniz (TP'yi yakına,
+     SL'i uzağa koyarak) ama bu BECERİ değil; expectancy'yi değiştirmez.
+  -> Çok indikatör 'gerçek' win-rate'i artırmaz; overfitting + look-ahead
+     yüzeyini artırır. Doğru hedef: OUT-OF-SAMPLE expectancy & Sharpe.
+
+[OK] fig_mantik_analizi.png kaydedildi
