@@ -1,0 +1,57 @@
+name: Emir Real Backtest
+
+# emir/ altındaki kod değişince ya da elle tetiklenince çalışır.
+# GitHub runner'ının GERÇEK internet erişimi vardır -> Binance/Bybit/OKX'e ulaşır.
+on:
+  push:
+    branches: [claude/keen-hypatia-62KOz]
+    paths:
+      - 'emir/fetch_and_backtest.py'
+      - 'uyg/src/real_backtest_3m.py'
+      - 'uyg/src/dynamic_optimizer.py'
+      - '.github/workflows/emir-backtest.yml'
+  workflow_dispatch:
+    inputs:
+      months:
+        description: 'Kaç ay geriye (4H)'
+        default: '3'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: emir-backtest
+  cancel-in-progress: false
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: claude/keen-hypatia-62KOz
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install deps
+        run: pip install requests pandas numpy
+
+      - name: Run real backtest (canlı veri)
+        run: |
+          python3 emir/fetch_and_backtest.py --months "${{ github.event.inputs.months || '3' }}" 2>&1 | tee emir/run_log.txt
+
+      - name: Commit results back
+        run: |
+          git config user.name "tirad-ci"
+          git config user.email "ci@users.noreply.github.com"
+          git add emir/results_real.md emir/run_log.txt 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo "Değişiklik yok."
+          else
+            git commit -m "emir: gerçek backtest sonuçları (CI) [skip ci]"
+            git push origin HEAD:claude/keen-hypatia-62KOz
+          fi
