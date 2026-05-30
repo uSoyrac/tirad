@@ -1,0 +1,1 @@
+{'type': 'ATR', 'sl': 2.0, 'tp': 4.0, 'name': 'ATR 2.0 / 4.0 (Geniş)'}
