@@ -1,5 +1,5 @@
 # EMIR — Gerçek Veri Backtest Sonuçları
-_Üretim: 2026-05-30T20:52:37.854894Z (GitHub Actions, canlı internet)_
+_Üretim: 2026-05-30T21:23:18.661439Z (GitHub Actions, canlı internet)_
 _Periyot: son 3 ay · 4H · Coinler: BTCUSDT, ETHUSDT, SOLUSDT, BNBUSDT, XRPUSDT_
 
 - **BTCUSDT** (binance): 540 mum, 20 dolan işlem
