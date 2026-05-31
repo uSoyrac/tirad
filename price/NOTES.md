@@ -81,8 +81,12 @@ gerçek veri çeker. VDS için `deploy/` altında systemd+cron hazır.
 
 ## Açık işler / sıradakiler
 
-- [ ] **Canlı doğrulama:** VS Code/VDS'de `--data` ile gerçek Binance verisi
-      çekildiğini teyit et (web'de yapılamadı).
+- [x] **Canlı doğrulama (2026-05-31, VS Code / internetli makine):**
+      `python3 -m pa.cli --symbol BTC/USDT --tf 1h --htf 4h --data
+      --portfolio 1000` çalıştırıldı → exit 0, stderr boş. Klines canlı
+      çekildi (giriş+HTF; bağımsız `urllib` Binance çağrısıyla aynı fiyat
+      aralığı) ve BÖLÜM 2 `market.py` funding/OI/long-short (fapi) üç
+      metrik de gerçek değerle geldi (alınamadı uyarısı yok). 33/33 test OK.
 - [ ] **Backtest & doğrulama:** kuralları geçmiş veride çalıştırıp gerçek
       isabet/R/R dağılımını ölç ("bu kurallar gerçekten çalışıyor mu").
 - [ ] **LLM yorum katmanı:** motorun yapısal çıktısını Claude API'ye verip
