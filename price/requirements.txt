@@ -1,0 +1,3 @@
+# Çekirdek motor SADECE stdlib kullanır — bu dosya OPSİYONEL ekleri listeler.
+ccxt>=4.0      # canlı OHLCV (Binance vb.) için; motor ccxt'siz de çalışır
+# Test: stdlib unittest ile çalışır, ek paket gerekmez.

@@ -1,0 +1,18 @@
+[Unit]
+Description=Price Action tarayıcı (tek seferlik çalışma)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# --- DÜZENLE: kullanıcı ve repo yolu ---
+User=ubuntu
+WorkingDirectory=/home/ubuntu/tirad/price
+# Sembol ve parametreler (ihtiyaca göre değiştir)
+Environment=PA_SYMBOLS=BTC/USDT,ETH/USDT,SOL/USDT
+Environment=PA_ENTRY_TF=1h
+Environment=PA_HTF=4h
+Environment=PA_LIMIT=300
+Environment=PA_DATA=1
+# stdlib yeterli; sanal ortam kullanıyorsan python3 yolunu güncelle
+ExecStart=/usr/bin/python3 scripts/scan_once.py
