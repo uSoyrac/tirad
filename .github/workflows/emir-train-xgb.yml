@@ -10,7 +10,7 @@ on:
     inputs:
       months:
         description: 'Kaç ay geriye eğit (4H)'
-        default: '12'
+        default: '6'
 
 permissions:
   contents: write
@@ -22,7 +22,7 @@ concurrency:
 jobs:
   train:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 50
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -40,7 +40,7 @@ jobs:
       - name: Train on real data
         run: |
           set -o pipefail
-          python3 emir/train_xgb_real.py --months "${{ github.event.inputs.months || '12' }}" 2>&1 | tee emir/train_log.txt
+          python3 -u emir/train_xgb_real.py --months "${{ github.event.inputs.months || '6' }}" 2>&1 | tee emir/train_log.txt
 
       - name: Commit results back
         if: always()   # eğitim patlasa bile log'u geri yaz (körlemesine beklememek için)

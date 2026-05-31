@@ -62,7 +62,10 @@ def get_label(df, start_idx, trend, entry, sl, atr):
     return 0  # timeout = kayıp say
 
 
-def build_real_dataset(months):
+def build_real_dataset(months, time_budget_s=2400):
+    """time_budget_s: tüm tarama için toplam zaman bütçesi (job kill'e güvenme)."""
+    import time as _t
+    t0 = _t.time()
     rows = []
     meta = []
     for sym in COINS:
@@ -70,6 +73,7 @@ def build_real_dataset(months):
             df, src = fetch_any(sym, months)
         except Exception as e:
             meta.append(f"- **{sym}**: veri yok — {e}")
+            print(f"[{sym}] veri yok: {e}", flush=True)
             continue
         df = df.sort_values("ts").reset_index(drop=True)
         # builder ile aynı indikatörler
@@ -79,7 +83,18 @@ def build_real_dataset(months):
         df["vol_sma"] = ta.trend.SMAIndicator(df["volume"], window=20).sma_indicator()
 
         n0 = len(rows)
-        for i in range(WARMUP, len(df) - 1):
+        total = len(df) - 1 - WARMUP
+        sym_start = _t.time()
+        print(f"[{sym}] ({src}) tarama başladı: {total} mum", flush=True)
+        timed_out = False
+        for j, i in enumerate(range(WARMUP, len(df) - 1)):
+            if j % 200 == 0:
+                el = _t.time() - t0
+                print(f"  [{sym}] {j}/{total} | sinyal={len(rows)} | geçen={el:.0f}s", flush=True)
+                if el > time_budget_s:
+                    print(f"  [{sym}] ZAMAN BÜTÇESİ doldu ({el:.0f}s) — tarama kesiliyor.", flush=True)
+                    timed_out = True
+                    break
             df_slice = df.iloc[max(0, i - 300):i]
             comp, trend, entry_, sl_, atr_, vol_ok_ = score_slice_v2(df_slice)
             if comp < 4.5 or trend == "NEUTRAL" or entry_ is None:
@@ -107,7 +122,12 @@ def build_real_dataset(months):
                 "vol_ratio": float(df["volume"].iloc[i]) / vol_sma,
                 "label": get_label(df, i, trend, entry_, sl_, atr_),
             })
-        meta.append(f"- **{sym}** ({src}): {len(df)} mum, {len(rows)-n0} sinyal")
+        tag = " (zaman aşımı)" if timed_out else ""
+        print(f"[{sym}] bitti: {len(rows)-n0} sinyal, {_t.time()-sym_start:.0f}s{tag}", flush=True)
+        meta.append(f"- **{sym}** ({src}): {len(df)} mum, {len(rows)-n0} sinyal{tag}")
+        if _t.time() - t0 > time_budget_s:
+            meta.append(f"- ⏱️ Toplam zaman bütçesi ({time_budget_s}s) aşıldı — kalan coinler atlandı.")
+            break
     out = pd.DataFrame(rows).dropna().reset_index(drop=True)
     out = out.sort_values("ts").reset_index(drop=True)  # kronolojik (portföy)
     return out, meta
@@ -164,7 +184,7 @@ def train(df):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--months", type=float, default=12.0)
+    ap.add_argument("--months", type=float, default=6.0)
     args = ap.parse_args()
 
     L = []
