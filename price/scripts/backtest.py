@@ -1,165 +1,248 @@
-"""Backtest / kural doğrulama (stdlib).
+"""Backtest / kural doğrulama (stdlib) — teşhis sürümü.
 
-Motorun ürettiği setup'ları geçmiş mumlarda yürütür ve gerçek isabet/R/R
-dağılımını ölçer. "Bu kurallar gerçekten çalışıyor mu?" sorusunu yanıtlar.
+Motorun ürettiği setup'ları geçmiş mumlarda yürütür ve GERÇEK isabet/R/R
+dağılımını ölçer. "Bu kurallar gerçekten çalışıyor mu / nerede kaybediyor?"
 
-Yöntem (look-ahead YOK):
-  - Her bar i için setup yalnızca candles[:i+1] ile kurulur (gelecek görülmez).
-  - Geçerli bir setup çıkınca, SONRAKİ barlarda (i+1..i+HORIZON) simüle edilir:
-      1) Fiyat giriş bölgesine [entry_low, entry_high] dönerse emir dolar.
-      2) Dolduktan sonra önce stop mu hedef mi vurulur? (aynı bar → stop, ihtiyatlı)
-  - Çözülen trade'den sonra arama çözülme barından devam eder (üst üste binme yok).
-
-Tek-TF (build_setup) kullanır; CLI'nin HTF confluence filtresi bu basit
-sürümde uygulanmaz (ayrı bir doğrulama). Çıktı: trade sayısı, isabet, ort R,
-beklenen değer (R/işlem), toplam R.
+Özellikler:
+  - Look-ahead YOK: setup yalnızca candles[:i+1] ile kurulur.
+  - HTF confluence filtresi (CLI'deki gibi): üst TF yönüne ters setup elenir.
+    HTF yönü, o ana kadar KAPANMIŞ üst-TF mumlarından hesaplanır (gelecek yok).
+  - Maliyet: komisyon + slippage (gidiş-dönüş), R cinsinden düşülür → NET sonuç.
+  - Teşhis: MFE/MAE (lehe/aleyhe azami sapma, R) — kısmi kâr-al işe yarar mı?
+  - Çok sembol; $ raporu (sabit-kesir risk).
 
 Kullanım:
-  python3 scripts/backtest.py                      # data/sample_btc_1h.csv
-  python3 scripts/backtest.py --csv yol.csv
-  python3 scripts/backtest.py --symbol BTC/USDT --tf 1h --limit 1000   # canlı
+  python3 scripts/backtest.py --live --symbols BTC/USDT,ETH/USDT,SOL/USDT \\
+          --tf 1h --htf 4h --limit 1000 --portfolio 1000 --risk-pct 1
+  python3 scripts/backtest.py --csv data/sample_btc_1h.csv        # HTF'siz
 """
 from __future__ import annotations
 
 import argparse
 import sys
-from typing import List, Optional, Sequence
+from dataclasses import dataclass
+from typing import List, Optional, Sequence, Tuple
 
 sys.path.insert(0, ".")
-from pa import data as datamod          # noqa: E402
-from pa.types import Candle, Side        # noqa: E402
-from pa.setup import build_setup         # noqa: E402
+from pa import data as datamod                 # noqa: E402
+from pa.types import Bias, Candle, Side         # noqa: E402
+from pa.setup import build_setup               # noqa: E402
+from pa.analyze import htf_bias                 # noqa: E402
 
-WARMUP = 60        # setup kurmadan önce gereken minimum mum
-HORIZON = 120      # bir trade'in çözülmesi için bakılan azami ileri bar
+WARMUP = 60
+HORIZON = 120
+_TF_MS = {"1m": 60, "3m": 180, "5m": 300, "15m": 900, "30m": 1800,
+          "1h": 3600, "2h": 7200, "4h": 14400, "6h": 21600, "8h": 28800,
+          "12h": 43200, "1d": 86400, "3d": 259200, "1w": 604800}
 
 
+def tf_ms(tf: str) -> int:
+    if tf not in _TF_MS:
+        raise ValueError(f"bilinmeyen TF: {tf}")
+    return _TF_MS[tf] * 1000
+
+
+@dataclass
 class Trade:
-    __slots__ = ("side", "rr", "entry", "stop", "target",
-                 "open_bar", "fill_bar", "res_bar", "outcome_R")
-
-    def __init__(self, s, open_bar):
-        self.side = s.side
-        self.rr = s.rr
-        self.entry = s.entry
-        self.stop = s.stop
-        self.target = s.target
-        self.open_bar = open_bar
-        self.fill_bar: Optional[int] = None
-        self.res_bar: Optional[int] = None
-        self.outcome_R: Optional[float] = None   # +rr (kazanç), -1 (kayıp), None (çözülmedi)
+    symbol: str
+    side: Side
+    rr: float
+    gross_R: float          # +rr (hedef) | -1 (stop)
+    net_R: float            # gross - maliyet
+    mfe_R: float            # dolumdan sonra azami LEHE sapma (R)
+    mae_R: float            # azami ALEYHE sapma (R)
 
 
-def _simulate(s, candles: Sequence[Candle], i: int) -> Trade:
-    """build_setup çıktısı s'yi bar i'den sonra ileri simüle et."""
-    t = Trade(s, i)
+def htf_bias_at(htf: Sequence[Candle], ts_ms: int, htfms: int, k: int) -> Bias:
+    """ts_ms'den ÖNCE tamamen kapanmış üst-TF mumlarından yön (look-ahead yok)."""
+    usable = [c for c in htf if c.ts + htfms <= ts_ms]
+    if len(usable) < 4 * k + 5:
+        return Bias.NEUTRAL
+    return htf_bias(usable, k=k)
+
+
+def _simulate(s, candles: Sequence[Candle], i: int, cost_R: float,
+              part_frac: float = 0.0, part_at: float = 1.0) -> Optional[Trade]:
+    """part_frac>0 ise: part_at R'de pozisyonun part_frac'ı kapatılır ve stop
+    girişe (breakeven) çekilir; kalan hedefe kadar taşınır. (ihtiyatlı: bir
+    barda hem stop hem lehe seviye varsa stop önce sayılır.)"""
     n = len(candles)
     is_long = s.side == Side.LONG
+    risk = abs(s.entry - s.stop)
+    if risk == 0:
+        return None
+    fill = None
+    mfe = mae = 0.0
+    part_done = False
+    stop_lvl = s.stop
+    realized = 0.0
     for j in range(i + 1, min(i + 1 + HORIZON, n)):
         c = candles[j]
-        if t.fill_bar is None:
-            # limit giriş fiyatına dokunuldu mu?
+        if fill is None:
             if c.low <= s.entry <= c.high:
-                t.fill_bar = j
+                fill = j
             else:
                 continue
-        # dolu: stop/hedef kontrolü (dolum barı dahil)
         if is_long:
-            hit_stop = c.low <= s.stop
+            mfe = max(mfe, (c.high - s.entry) / risk)
+            mae = max(mae, (s.entry - c.low) / risk)
+            hit_stop = c.low <= stop_lvl
+            hit_part = c.high >= s.entry + part_at * risk
             hit_tgt = c.high >= s.target
         else:
-            hit_stop = c.high >= s.stop
+            mfe = max(mfe, (s.entry - c.low) / risk)
+            mae = max(mae, (c.high - s.entry) / risk)
+            hit_stop = c.high >= stop_lvl
+            hit_part = c.low <= s.entry - part_at * risk
             hit_tgt = c.low <= s.target
-        if hit_stop:                       # aynı bar her ikisi de → ihtiyatlı: stop
-            t.outcome_R = -1.0
-            t.res_bar = j
-            return t
+
+        if hit_stop:                        # ihtiyatlı: stop önce
+            g = realized + (0.0 if part_done else -1.0)
+            return Trade(s.symbol, s.side, s.rr, g, g - cost_R, mfe, mae)
+        if part_frac > 0 and not part_done and hit_part:
+            part_done = True
+            stop_lvl = s.entry               # breakeven
+            realized = part_frac * part_at
         if hit_tgt:
-            t.outcome_R = s.rr
-            t.res_bar = j
-            return t
-    return t   # fill_bar None ise dolmadı; doluysa horizon içinde çözülmedi
+            g = realized + (1.0 - part_frac) * s.rr
+            return Trade(s.symbol, s.side, s.rr, g, g - cost_R, mfe, mae)
+    return None  # dolmadı / horizon içinde çözülmedi → istatistiğe alma
 
 
-def backtest(candles: Sequence[Candle], k: int = 2):
+def backtest(entry: Sequence[Candle], htf: Optional[Sequence[Candle]],
+             htf_tf: str, k: int, fee_pct: float, slip_pct: float,
+             part_frac: float = 0.0, part_at: float = 1.0
+             ) -> Tuple[List[Trade], int, int]:
     trades: List[Trade] = []
-    no_fill = 0
+    skipped_htf = no_fill = 0
+    htfms = tf_ms(htf_tf) if (htf and htf_tf) else 0
+    roundtrip = 2.0 * (fee_pct + slip_pct) / 100.0   # oransal gidiş-dönüş
+    n = len(entry)
     i = WARMUP
-    n = len(candles)
     while i < n - 1:
-        s = build_setup(candles[: i + 1], k=k)
+        s = build_setup(entry[: i + 1], k=k)
         if not s.valid:
             i += 1
             continue
-        t = _simulate(s, candles, i)
-        if t.fill_bar is None:
+        if htf:                                   # HTF confluence filtresi
+            hb = htf_bias_at(htf, entry[i].ts, htfms, k)
+            want = Bias.BULLISH if s.side == Side.LONG else Bias.BEARISH
+            if hb != Bias.NEUTRAL and hb != want:
+                skipped_htf += 1
+                i += 1
+                continue
+        risk = abs(s.entry - s.stop)
+        cost_R = (roundtrip * s.entry / risk) if risk else 0.0
+        t = _simulate(s, entry, i, cost_R, part_frac, part_at)
+        if t is None:
             no_fill += 1
-            i += 1                          # dolmadı; bir bar ilerle
+            i += 1
             continue
         trades.append(t)
-        i = (t.res_bar or t.fill_bar) + 1   # çözülme sonrası devam (binme yok)
-    return trades, no_fill
+        # çözülme sonrası ilerle: kabaca dolum+1 yerine güvenli atla
+        i += 1
+    return trades, skipped_htf, no_fill
 
 
-def report(trades: List[Trade], no_fill: int) -> str:
-    resolved = [t for t in trades if t.outcome_R is not None]
-    unresolved = len(trades) - len(resolved)
-    wins = [t for t in resolved if t.outcome_R > 0]
-    losses = [t for t in resolved if t.outcome_R <= 0]
-    n = len(resolved)
-    out = ["# Backtest sonucu (tek-TF, build_setup)"]
-    out.append(f"  Dolan & çözülen işlem : {n}")
-    out.append(f"  Dolmayan setup        : {no_fill}")
-    out.append(f"  Horizon içinde açık   : {unresolved}")
+def _stats(trades: List[Trade]):
+    n = len(trades)
+    wins = [t for t in trades if t.gross_R > 0]
+    gross = sum(t.gross_R for t in trades)
+    net = sum(t.net_R for t in trades)
+    wr = len(wins) / n * 100 if n else 0
+    avg_rr = sum(t.rr for t in trades) / n if n else 0
+    loser_mfe = [t.mfe_R for t in trades if t.gross_R < 0]
+    avg_loser_mfe = sum(loser_mfe) / len(loser_mfe) if loser_mfe else 0
+    return n, len(wins), wr, avg_rr, gross, net, avg_loser_mfe
+
+
+def report(trades: List[Trade], skipped_htf: int, no_fill: int,
+           portfolio: float, risk_pct: float) -> str:
+    n, w, wr, avg_rr, gross, net, loser_mfe = _stats(trades)
+    o = ["# Backtest (HTF filtresi + maliyet + teşhis)"]
+    o.append(f"  İşlem (dolan&çözülen) : {n}   "
+             f"[HTF eledi: {skipped_htf} · dolmadı/açık: {no_fill}]")
     if n == 0:
-        out.append("  ⚠️ Çözülen işlem yok — istatistik üretilemiyor.")
-        return "\n".join(out)
-    wr = len(wins) / n * 100.0
-    total_R = sum(t.outcome_R for t in resolved)
-    exp_R = total_R / n
-    avg_win = sum(t.outcome_R for t in wins) / len(wins) if wins else 0.0
-    avg_planned_rr = sum(t.rr for t in resolved) / n
-    longs = [t for t in resolved if t.side == Side.LONG]
-    shorts = [t for t in resolved if t.side == Side.SHORT]
-    out.append(f"  İsabet (win rate)     : {wr:.1f}%  ({len(wins)}K / {len(losses)}Z)")
-    out.append(f"  Ortalama planlanan R/R: {avg_planned_rr:.2f}")
-    out.append(f"  Ortalama kazanç (R)   : +{avg_win:.2f}")
-    out.append(f"  Beklenen değer (R/işl): {exp_R:+.3f}")
-    out.append(f"  Toplam R              : {total_R:+.2f}")
-    out.append(f"  Yön dağılımı          : {len(longs)} long / {len(shorts)} short")
-    # başabaş isabet eşiği (R=ortalama planlanan): 1/(1+R)
-    be = 1.0 / (1.0 + avg_planned_rr) * 100.0
-    out.append(f"  Başabaş isabet eşiği  : {be:.1f}%  → "
-               + ("EDGE VAR ✓" if wr > be else "edge yok ✗"))
-    return "\n".join(out)
+        o.append("  ⚠️ İstatistik için işlem yok.")
+        return "\n".join(o)
+    be = 1.0 / (1.0 + avg_rr) * 100.0
+    per_R = portfolio * risk_pct / 100.0
+    o.append(f"  İsabet                : {wr:.1f}%  ({w}K/{n - w}Z)  "
+             f"(başabaş eşiği {be:.1f}%)")
+    o.append(f"  Ortalama planlanan R/R: {avg_rr:.2f}")
+    o.append(f"  BRÜT  beklenti / toplam: {gross / n:+.3f} R / {gross:+.2f} R")
+    o.append(f"  NET   beklenti / toplam: {net / n:+.3f} R / {net:+.2f} R   "
+             + ("EDGE VAR ✓" if net > 0 else "edge yok ✗"))
+    o.append(f"  $  (1R={per_R:.2f}$, sabit risk): NET {net * per_R:+.2f}$ "
+             f"({portfolio:.0f}$ portföy, %{risk_pct:g}/işlem)")
+    o.append(f"  TEŞHİS · kaybedenlerin ort. MFE: {loser_mfe:.2f} R  → "
+             + ("kısmi kâr-al/BE-stop CİDDİ fayda sağlar" if loser_mfe >= 1.0
+                else "kaybedenler lehe pek gitmiyor; sorun GİRİŞ kalitesinde"))
+    return "\n".join(o)
+
+
+def _load(args, symbol: str):
+    if args.live:
+        entry = datamod.fetch_ohlcv(symbol, args.tf, args.limit, args.exchange)
+        htf = (datamod.fetch_ohlcv(symbol, args.htf, args.limit, args.exchange)
+               if args.htf else None)
+    else:
+        entry = datamod.load_csv(args.csv)
+        htf = None
+    return entry, htf
 
 
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(prog="backtest")
     p.add_argument("--csv", default="data/sample_btc_1h.csv")
-    p.add_argument("--symbol", default="BTC/USDT")
+    p.add_argument("--symbols", default="BTC/USDT", help="virgülle ayrılmış")
     p.add_argument("--tf", default="1h")
+    p.add_argument("--htf", default=None, help="HTF confluence filtresi (örn 4h)")
     p.add_argument("--limit", type=int, default=1000)
     p.add_argument("--exchange", default="binance")
-    p.add_argument("--live", action="store_true", help="CSV yerine canlı çek")
+    p.add_argument("--live", action="store_true")
+    p.add_argument("--fee-pct", type=float, default=0.04, help="taker, taraf başına")
+    p.add_argument("--slip-pct", type=float, default=0.02, help="kayma, taraf başına")
+    p.add_argument("--portfolio", type=float, default=1000.0)
+    p.add_argument("--risk-pct", type=float, default=1.0)
+    p.add_argument("--partial-frac", type=float, default=0.0,
+                   help="X R'de kapatılacak pozisyon oranı (0=kapalı, örn 0.5)")
+    p.add_argument("--partial-at", type=float, default=1.0,
+                   help="kısmi kâr-al seviyesi (R)")
     p.add_argument("-k", type=int, default=2)
     args = p.parse_args(argv)
 
-    if args.live:
-        candles = datamod.fetch_ohlcv(args.symbol, args.tf, args.limit, args.exchange)
-        src = f"{args.exchange} {args.symbol} {args.tf} (canlı, {len(candles)} mum)"
-    else:
-        candles = datamod.load_csv(args.csv)
-        src = f"CSV {args.csv} ({len(candles)} mum)"
+    symbols = [s.strip() for s in args.symbols.split(",") if s.strip()]
+    if not args.live:
+        symbols = symbols[:1]   # CSV tek sembol
 
-    if len(candles) < WARMUP + HORIZON:
-        print(f"⚠️ Yetersiz mum ({len(candles)}); en az {WARMUP+HORIZON} gerekir.",
-              file=sys.stderr)
-        return 2
+    all_trades: List[Trade] = []
+    tot_skip = tot_nofill = 0
+    part = (f"kısmi {args.partial_frac:g}@{args.partial_at:g}R+BE"
+            if args.partial_frac > 0 else "kısmi yok")
+    print(f"# TF={args.tf} HTF={args.htf or '—'} limit={args.limit} "
+          f"fee={args.fee_pct}%×2 slip={args.slip_pct}%×2 · {part}\n")
+    for sym in symbols:
+        try:
+            entry, htf = _load(args, sym)
+        except Exception as e:  # noqa: BLE001
+            print(f"  [{sym}] veri alınamadı: {e}", file=sys.stderr)
+            continue
+        if len(entry) < WARMUP + HORIZON:
+            print(f"  [{sym}] yetersiz mum ({len(entry)})", file=sys.stderr)
+            continue
+        tr, sk, nf = backtest(entry, htf, args.htf or "", args.k,
+                              args.fee_pct, args.slip_pct,
+                              args.partial_frac, args.partial_at)
+        all_trades += tr
+        tot_skip += sk
+        tot_nofill += nf
+        n, w, wr, avg_rr, gross, net, _ = _stats(tr)
+        print(f"  [{sym}] {len(entry)} mum → işlem {n}, isabet {wr:.0f}%, "
+              f"NET {net:+.2f}R")
 
-    trades, no_fill = backtest(candles, k=args.k)
-    print(f"# Kaynak: {src}\n")
-    print(report(trades, no_fill))
+    print()
+    print(report(all_trades, tot_skip, tot_nofill, args.portfolio, args.risk_pct))
     return 0
 
 
