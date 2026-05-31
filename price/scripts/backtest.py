@@ -58,8 +58,8 @@ def _simulate(s, candles: Sequence[Candle], i: int) -> Trade:
     for j in range(i + 1, min(i + 1 + HORIZON, n)):
         c = candles[j]
         if t.fill_bar is None:
-            # giriş bölgesine dokunuldu mu?
-            if c.low <= s.entry_high and c.high >= s.entry_low:
+            # limit giriş fiyatına dokunuldu mu?
+            if c.low <= s.entry <= c.high:
                 t.fill_bar = j
             else:
                 continue
