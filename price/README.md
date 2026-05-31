@@ -5,6 +5,9 @@ analiz için bağımsız bir proje. Amaç: minimum riskle maksimum hedef — sad
 asimetrik (düşük risk / yüksek hedef) fırsatları yakalamak. Çoğu zaman doğru
 cevap "işlem yok"tur.
 
+> 🔁 **Oturum/ortam devri:** Bağlamı, kararları ve açık işleri toparlamak için
+> önce [`NOTES.md`](NOTES.md) oku. (Özellikle VS Code'da yeni oturum açıyorsan.)
+
 ## İçindekiler
 
 ### Doküman
