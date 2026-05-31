@@ -35,7 +35,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install deps
-        run: pip install requests pandas numpy "ta==0.11.0" ccxt yfinance xgboost scikit-learn beautifulsoup4 lxml
+        run: pip install requests pandas numpy ccxt yfinance xgboost scikit-learn beautifulsoup4 lxml
 
       - name: Train on real data
         run: |

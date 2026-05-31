@@ -32,10 +32,34 @@ import warnings
 warnings.filterwarnings("ignore")
 
 from fetch_and_backtest import fetch_any, COINS          # anahtarsız canlı veri
-from backtest_multi_tf import score_slice_v2, WARMUP, _trend_1d  # GERÇEK SMC motoru
-import ta
+
+# GERÇEK SMC motoru. live_scan ccxt/yfinance/bs4'ü modül seviyesinde import eder;
+# CI'da bunlar kurulu olmalı. Import erken patlarsa NEDENİNİ rapora yaz (sessiz kalma).
+try:
+    from backtest_multi_tf import score_slice_v2, WARMUP, _trend_1d
+    _IMPORT_OK = True
+    _IMPORT_ERR = None
+except Exception as _e:
+    import traceback
+    _IMPORT_OK = False
+    _IMPORT_ERR = f"{type(_e).__name__}: {_e}\n{traceback.format_exc()}"
 
 THRESHOLD = 0.60   # ML_HANDOVER_GUIDE: ASLA esnetme
+
+
+# --- İndikatörler (saf pandas; 'ta' paketi CI'da derlenmiyor, bağımlılık kaldırıldı) ---
+def _rsi(close, n=14):
+    d = close.diff()
+    up = d.clip(lower=0).ewm(alpha=1/n, adjust=False).mean()
+    dn = (-d.clip(upper=0)).ewm(alpha=1/n, adjust=False).mean()
+    rs = up / dn.replace(0, np.nan)
+    return (100 - 100/(1+rs)).fillna(50.0)
+
+def _macd_hist(close, fast=12, slow=26, sig=9):
+    ema_f = close.ewm(span=fast, adjust=False).mean()
+    ema_s = close.ewm(span=slow, adjust=False).mean()
+    macd = ema_f - ema_s
+    return macd - macd.ewm(span=sig, adjust=False).mean()
 FEATURES = ["comp_score", "is_bullish", "atr_pct", "rsi", "macd_hist_norm", "vol_ratio"]
 
 
@@ -76,11 +100,10 @@ def build_real_dataset(months, time_budget_s=2400):
             print(f"[{sym}] veri yok: {e}", flush=True)
             continue
         df = df.sort_values("ts").reset_index(drop=True)
-        # builder ile aynı indikatörler
-        df["rsi"] = ta.momentum.RSIIndicator(df["close"], window=14).rsi()
-        macd = ta.trend.MACD(df["close"], window_slow=26, window_fast=12, window_sign=9)
-        df["macd_hist"] = macd.macd_diff()
-        df["vol_sma"] = ta.trend.SMAIndicator(df["volume"], window=20).sma_indicator()
+        # builder ile aynı indikatörler (saf pandas)
+        df["rsi"] = _rsi(df["close"], 14)
+        df["macd_hist"] = _macd_hist(df["close"])
+        df["vol_sma"] = df["volume"].rolling(20).mean()
 
         n0 = len(rows)
         total = len(df) - 1 - WARMUP
@@ -193,6 +216,15 @@ def main():
     log("# EMIR — XGBoost GERÇEK Veriyle Eğitim Raporu")
     log(f"_Üretim: {dt.datetime.utcnow().isoformat()}Z (GitHub Actions, canlı internet)_")
     log(f"_Eğitim periyodu: son {args.months:.0f} ay · 4H · {', '.join(COINS)}_\n")
+
+    if not _IMPORT_OK:
+        log("## ❌ SMC motoru import edilemedi (CI bağımlılık eksiği)")
+        log("```")
+        log(_IMPORT_ERR or "bilinmeyen hata")
+        log("```")
+        log("Çözüm: workflow'da ccxt/yfinance/beautifulsoup4/lxml kurulu olmalı.")
+        _write(L)
+        return
 
     df, meta = build_real_dataset(args.months)
     log("## Veri Çıkarımı (gerçek score_slice_v2)")
