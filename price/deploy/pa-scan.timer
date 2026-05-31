@@ -1,0 +1,13 @@
+[Unit]
+Description=Price Action tarayıcıyı periyodik çalıştır
+
+[Timer]
+# Her 15 dakikada bir (15m/1h scalp-intraday için makul).
+# Swing için OnCalendar=*:0/30 veya saatlik yapabilirsin.
+OnBootSec=2min
+OnUnitActiveSec=15min
+Persistent=true
+Unit=pa-scan.service
+
+[Install]
+WantedBy=timers.target
