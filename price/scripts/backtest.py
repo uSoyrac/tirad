@@ -31,10 +31,11 @@ from pa import data as datamod                 # noqa: E402
 from pa.types import Bias, Candle, Side         # noqa: E402
 from pa.setup import build_setup               # noqa: E402
 from pa.analyze import htf_bias                 # noqa: E402
-from pa.pdarray import premium_discount         # noqa: E402
+from pa.pdarray import build_pd_array            # noqa: E402
 
 WARMUP = 60
 HORIZON = 120
+PD_LOOKBACK = 50          # premium/discount dealing-range penceresi (mum)
 FAPI = "https://fapi.binance.com"
 _TF_S = {"1m": 60, "3m": 180, "5m": 300, "15m": 900, "30m": 1800,
          "1h": 3600, "2h": 7200, "4h": 14400, "6h": 21600, "8h": 28800,
@@ -170,14 +171,15 @@ def backtest(entry: Sequence[Candle], htf: Optional[Sequence[Candle]],
                 i += 1
                 continue
         if pd_gate:                                   # ICT: long discount, short premium
-            pdg = premium_discount(entry[: i + 1], k=k)
-            z = pdg.zone(s.entry) if pdg else "?"
+            pdg = build_pd_array(entry[: i + 1], lookback=PD_LOOKBACK)
+            z = pdg.zone(s.entry)
             ok = (s.side == Side.LONG and z == "discount") or \
                  (s.side == Side.SHORT and z == "premium")
             if not ok:
                 skip_pd += 1
                 i += 1
                 continue
+        # (z yukarıda pd_gate açıkken hesaplandı; teşhis için aşağıda da kullanılır)
         if funding is not None:                       # Option 2: kalabalığı fade
             fr = funding_at(funding, entry[i].ts)
             if fr is not None:
@@ -195,8 +197,8 @@ def backtest(entry: Sequence[Candle], htf: Optional[Sequence[Candle]],
         t.stop_pct = s.stop_pct
         t.entry_type = ("OB" if any("OB" in r for r in s.reasons)
                         else "FVG" if any("FVG" in r for r in s.reasons) else "?")
-        pd = premium_discount(entry[: i + 1], k=k)
-        t.pd_zone = pd.zone(s.entry) if pd else "?"
+        pd = build_pd_array(entry[: i + 1], lookback=PD_LOOKBACK)
+        t.pd_zone = pd.zone(s.entry)
         t.hour = time.gmtime(entry[i].ts / 1000).tm_hour
         trades.append(t)
         i += 1
