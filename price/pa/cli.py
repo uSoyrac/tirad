@@ -32,6 +32,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     r.add_argument("--risk-pct", type=float, default=1.0)
     r.add_argument("-k", type=int, default=2, help="swing fractal penceresi")
 
+    p.add_argument("--data", action="store_true",
+                   help="BÖLÜM 2: canlı funding/OI/long-short çek (ağ gerekir)")
+
     args = p.parse_args(argv)
 
     try:
@@ -62,8 +65,14 @@ def main(argv: Optional[List[str]] = None) -> int:
     result = analyze(entry, htf, entry_tf=args.tf, htf_tf=htf_tf,
                      symbol=args.symbol, k=args.k)
 
+    reading = None
+    if args.data:
+        from .market import collect
+        reading = collect(args.symbol)  # her metrik kendi içinde yakalanır
+
     print(f"# Kaynak: {src}\n")
-    print(render(result, portfolio=args.portfolio, risk_pct=args.risk_pct))
+    print(render(result, reading=reading,
+                 portfolio=args.portfolio, risk_pct=args.risk_pct))
     return 0
 
 

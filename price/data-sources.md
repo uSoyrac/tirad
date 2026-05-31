@@ -31,3 +31,19 @@ etme; "bu kaynak alınamadı" de ve eldeki veriyle çalış.
 
 Bu sayfaların çoğu **canlı/JS tabanlıdır**; otomatik çekilemeyebilir. Çekemezsen
 veriyi tahmin etme — "bu kaynak alınamadı" diyerek işaretle.
+
+## Motor karşılığı (`pa/market.py`)
+
+`collect()` şu an aşağıdaki anahtarsız Binance USDⓈ-M Futures endpoint'lerini
+çeker; her biri ayrı yakalanır (biri çökerse diğerleri etkilenmez):
+
+| Metrik | Endpoint |
+|--------|----------|
+| Funding Rate | `fapi/v1/premiumIndex` |
+| Open Interest | `fapi/v1/openInterest` |
+| Long/Short Ratio | `futures/data/globalLongShortAccountRatio` |
+
+Felsefe koda gömülü: erişilemeyen kaynak `available=False` + hata notuyla
+işaretlenir, **asla uydurulmaz**. HTTP çağrısı enjekte edilebilir (`http_get`),
+böylece ağsız ortamda test edilebilir. Coinglass metrikleri (liquidation map,
+whale, RSI heatmap, MVRV vb.) JS tabanlı olduğundan henüz entegre değildir.

@@ -7,14 +7,18 @@ BÖLÜM 3 — karşılaştırma ve nihai karar kartı
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
-from .types import Setup
+from .types import Setup, Side
 from .risk import LeveragePlan, position_size
 from .analyze import AnalysisResult
 
+if TYPE_CHECKING:
+    from .market import DataReading
 
-def render(result: AnalysisResult, *, data_section: Optional[str] = None,
+
+def render(result: AnalysisResult, *, reading: "Optional[DataReading]" = None,
+           data_section: Optional[str] = None,
            portfolio: Optional[float] = None, risk_pct: float = 1.0) -> str:
     s = result.setup
     lines = ["BÖLÜM 1 — Price Action Analizi (bağımsız)"]
@@ -28,7 +32,9 @@ def render(result: AnalysisResult, *, data_section: Optional[str] = None,
     lines.append("")
 
     lines.append("BÖLÜM 2 — Veri Okuması")
-    if data_section:
+    if reading is not None:
+        lines.append(reading.render())
+    elif data_section:
         lines.append(data_section)
     else:
         lines.append("  ⚠️ Canlı veri kaynakları (funding/OI/long-short/whale/"
@@ -37,11 +43,33 @@ def render(result: AnalysisResult, *, data_section: Optional[str] = None,
     lines.append("")
 
     lines.append("BÖLÜM 3 — Karşılaştırma ve Sonuç")
+    confl = _confluence(s, reading)
+    if confl:
+        lines.append(confl)
     if not s.valid:
         lines.append(f"  ⚠️ İşlem için yeterli koşul yok. [neden: {s.rejected}]")
         return "\n".join(lines)
     lines.append(_card(s, result.plan, portfolio, risk_pct))
     return "\n".join(lines)
+
+
+def _confluence(s: Setup, reading: "Optional[DataReading]") -> str:
+    """Bölüm 1 (yapı) ile Bölüm 2 (veri) uyumlu mu? Veri yoksa düşük güven."""
+    if reading is None or not reading.any_available:
+        return ("  • Veri katmanı yok/eksik → yapı ile teyit yapılamadı; "
+                "işlem güveni DÜŞÜK.")
+    if not s.valid:
+        return ""
+    crowd = reading.crowded_side()
+    if crowd is None:
+        return "  • Veri karışık → net teyit yok; güven NÖTR."
+    # kalabalık taraf işlem yönüyle aynıysa, kontra mantığı uyarısı
+    same = (crowd == s.side.value)
+    if same:
+        return (f"  • Veri kalabalığı işlemle AYNI yönde ({crowd}); "
+                f"squeeze/kontra riski → güven ÖLÇÜLÜ.")
+    return (f"  • Veri kalabalığı ({crowd}) işleme TERS → likidite hedefiyle "
+            f"uyumlu, teyit GÜÇLÜ.")
 
 
 def _card(s: Setup, plan: Optional[LeveragePlan],

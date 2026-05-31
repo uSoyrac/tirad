@@ -35,14 +35,15 @@ LLM yorum katmanı bu motorun yapısal çıktısının üstüne biner.
 | `pa/risk.py` | Kaldıraç kuralı (stop% × kald < 90) + pozisyon büyüklüğü. |
 | `pa/setup.py` | Setup zinciri: sweep → BOS/CHoCH → OB/FVG → hedef, R/R denetimi. |
 | `pa/analyze.py` | Çok-TF confluence filtresi + risk planı. |
-| `pa/report.py` | 3-bölümlü çıktı (PA / veri / karar kartı). |
-| `pa/cli.py` | Komut satırı arayüzü. |
+| `pa/market.py` | **BÖLÜM 2** canlı veri — funding / OI / long-short (Binance Futures public). Enjekte edilebilir HTTP, ağsız test edilebilir. |
+| `pa/report.py` | 3-bölümlü çıktı (PA / veri / karar kartı) + veri-yapı confluence. |
+| `pa/cli.py` | Komut satırı arayüzü (`--data` ile canlı veri). |
 
 #### Test
 
 ```bash
 cd price
-python -m unittest discover -s tests -p "test_*.py"   # bağımlılık gerekmez (19 test)
+python -m unittest discover -s tests -p "test_*.py"   # bağımlılık gerekmez (27 test)
 ```
 
 #### Örnek veri üret & çalıştır
@@ -56,7 +57,15 @@ python -m pa.cli --csv data/sample_btc_1h.csv --tf 1h --symbol BTC/USDT --portfo
 
 # Binance public OHLCV (ccxt kuruluysa, anahtarsız)
 python -m pa.cli --symbol BTC/USDT --tf 1h --htf 4h --portfolio 1000
+
+# BÖLÜM 2 canlı veri ile (funding/OI/long-short — ağ erişimi gerekir)
+python -m pa.cli --symbol BTC/USDT --tf 1h --data --portfolio 1000
 ```
+
+> **Ağ notu:** `--data` Binance Futures public endpoint'lerine HTTP atar.
+> Çıkış ağ politikasıyla engelliyse (ör. dış HTTP'ye kapalı ortam) her metrik
+> "alınamadı (HTTP 403)" diye **dürüstçe işaretlenir** ve BÖLÜM 3 güveni düşürür
+> — veri asla uydurulmaz.
 
 Örnek çıktı (demo CSV, tam bir bullish ICT zinciri):
 
