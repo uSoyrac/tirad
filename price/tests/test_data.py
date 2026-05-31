@@ -1,9 +1,10 @@
+import json
 import os
 import tempfile
 import unittest
 
 import helpers  # noqa: F401
-from pa.data import from_records, load_csv
+from pa.data import from_records, load_csv, fetch_binance
 
 
 class TestData(unittest.TestCase):
@@ -41,6 +42,23 @@ class TestData(unittest.TestCase):
                 load_csv(path)
         finally:
             os.unlink(path)
+
+    def test_fetch_binance_parses_klines(self):
+        # Binance klines formatı; http_get enjekte edilir (ağ yok)
+        klines = [
+            [1000, "10", "12", "9", "11", "100", 1999, "0", 5, "0", "0", "0"],
+            [2000, "11", "13", "10", "12", "120", 2999, "0", 6, "0", "0", "0"],
+        ]
+        body = json.dumps(klines)
+        candles = fetch_binance("BTC/USDT", "1h", 2, http_get=lambda u: body)
+        self.assertEqual(len(candles), 2)
+        self.assertEqual(candles[0].high, 12)
+        self.assertEqual(candles[-1].close, 12)
+        self.assertEqual(candles[-1].volume, 120)
+
+    def test_fetch_binance_bad_interval(self):
+        with self.assertRaises(ValueError):
+            fetch_binance("BTC/USDT", "7m", 2, http_get=lambda u: "[]")
 
 
 if __name__ == "__main__":

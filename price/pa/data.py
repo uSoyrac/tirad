@@ -1,9 +1,10 @@
 """Veri katmanı — OHLCV yükleme (stdlib çekirdek).
 
-Motor list[Candle] ister. İki kaynak:
+Motor list[Candle] ister. Kaynaklar:
 - load_csv(): csv modülü ile, ağ bağımsız.
-- fetch_ohlcv(): ccxt (lazy import) — kurulu değilse/erişim yoksa yükseltir,
-  çağıran "bu kaynak alınamadı" diyebilsin.
+- fetch_binance(): stdlib urllib ile Binance public klines (ccxt GEREKMEZ).
+- fetch_ohlcv(): genel giriş — Binance için stdlib yolu, diğer borsalar için
+  ccxt (lazy import). Erişim yoksa yükseltir; çağıran "kaynak alınamadı" der.
 
 CSV başlığı şu sütunları içermeli: timestamp, open, high, low, close, volume.
 """
@@ -11,11 +12,28 @@ CSV başlığı şu sütunları içermeli: timestamp, open, high, low, close, vo
 from __future__ import annotations
 
 import csv
-from typing import List, Sequence
+import json
+import urllib.request
+from typing import Callable, List, Optional, Sequence
 
 from .types import Candle
 
 REQUIRED = ["timestamp", "open", "high", "low", "close"]
+
+# Binance klines için zaman dilimi -> API interval
+_BINANCE_INTERVALS = {
+    "1m", "3m", "5m", "15m", "30m",
+    "1h", "2h", "4h", "6h", "8h", "12h",
+    "1d", "3d", "1w", "1M",
+}
+
+HttpGet = Callable[[str], str]
+
+
+def _default_http_get(url: str, timeout: float = 10.0) -> str:
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return r.read().decode()
 
 
 def from_records(rows: Sequence[Sequence]) -> List[Candle]:
@@ -56,13 +74,48 @@ def load_csv(path: str) -> List[Candle]:
     return out
 
 
+def _to_binance_symbol(symbol: str) -> str:
+    """'BTC/USDT' -> 'BTCUSDT'."""
+    return symbol.replace("/", "").replace("-", "").upper()
+
+
+def fetch_binance(
+    symbol: str = "BTC/USDT",
+    timeframe: str = "1h",
+    limit: int = 500,
+    http_get: Optional[HttpGet] = None,
+    base: str = "https://api.binance.com",
+) -> List[Candle]:
+    """Binance public klines'ı SADECE stdlib ile çek (anahtarsız, ccxt yok).
+
+    http_get enjekte edilebilir → ağsız test edilebilir. Ağ erişimi yoksa
+    altta urllib hatası yükselir; çağıran "kaynak alınamadı" diyebilsin.
+    """
+    if timeframe not in _BINANCE_INTERVALS:
+        raise ValueError(f"Binance desteklemeyen interval: {timeframe}")
+    get = http_get or _default_http_get
+    url = (f"{base}/api/v3/klines?symbol={_to_binance_symbol(symbol)}"
+           f"&interval={timeframe}&limit={int(limit)}")
+    raw = json.loads(get(url))
+    # klines: [openTime, open, high, low, close, volume, closeTime, ...]
+    rows = [[k[0], k[1], k[2], k[3], k[4], k[5]] for k in raw]
+    return from_records(rows)
+
+
 def fetch_ohlcv(
     symbol: str = "BTC/USDT",
     timeframe: str = "1h",
     limit: int = 500,
     exchange: str = "binance",
 ) -> List[Candle]:
-    """Public OHLCV çek (anahtarsız). ccxt yoksa/erişim yoksa yükseltir."""
+    """Public OHLCV çek (anahtarsız).
+
+    Binance: stdlib urllib yolu (ccxt gerekmez). Diğer borsalar: ccxt (lazy).
+    Erişim yoksa yükseltir.
+    """
+    if exchange == "binance":
+        return fetch_binance(symbol, timeframe, limit)
+
     import ccxt  # lazy: çekirdek ccxt'siz çalışsın
 
     ex_cls = getattr(ccxt, exchange, None)
