@@ -78,3 +78,40 @@ Gelecek geliştirmeler ŞU KURAL SETİNE GÖRE yapılacaktır:
 - **Uygulama Alanı:** Python, `python-binance`, `xgboost`, VPS (7/24 Sunucu).
 
 *Düşünsel sürecin tamamı bu kadardır. Yeni Agent, lütfen kodlama yaparken doğrudan bu kuralları (Özellikle Limit Emir zorunluluğunu ve 4H'yi) baz alınız.*
+
+---
+
+## 📅 FAZ 6: GERÇEKLİK DÜZELTMESİ (2026-05, gerçek veri ile)
+
+> Bu bölüm, yukarıdaki Faz 1-5'i SİLMEZ (tarihtir) ama gerçek veriyle yapılan
+> doğrulamanın çürüttüğü iddiaları DÜZELTİR. Kanıtlar `emir/` ve
+> `uyg/docs/reality_check_v2_winrate_orp.md` içindedir. Yeni AI: önce bunları oku.
+
+**1. "%75 Win Rate" YANILSAMAYDI (mock veri).**
+`ilk_bot/optimal_xgb_model.json`, `ml_dataset_12m.csv` ile eğitildi — ama o CSV
+GERÇEK piyasa değil, `create_mock_12m.py`'nin `np.random.seed(42)` ile ürettiği
+SENTETİK veridir (özellikler birebir, label 268/268 eşleşti). Model, bir insanın
+elle yazdığı label formülünü ezberledi. %75/%76 WR **döngüsel ve geçersizdir.**
+
+**2. Ham SMC edge'i gerçek veride breakeven.**
+GitHub Actions'ta canlı Binance verisiyle (3 ay, 4H, 5 coin, 83 işlem):
+WR **%32.5**, beklenti **+0.05R** (TP=2R sayesinde sıfıra yakın artı). Klasik
+SMC tek başına KÂRLI DEĞİL; XGBoost filtresi olmadan edge zayıf.
+
+**3. ORP "RİSKSİZ" DEĞİLDİR — Faz 4'teki en tehlikeli yanılgı.**
+Gerçek seride 10 ardışık kayıp geldi. ORP'nin deficit-recovery + %20 cap'i
+$100'ü **$66'ya** düşürdü (**%81 drawdown**); sabit %4 risk ise sadece -%4.1'di.
+Monte Carlo'da mevcut ORP'nin **iflas olasılığı %33**. ORP bir Martingale
+türevidir: breakeven bir edge'i FELAKETE çevirir.
+→ Çözüm: `emir/orp_circuit_breaker.py` (N=3 ardışık kayıpta recovery'yi dondur).
+   Bu iflası %0'a indirir AMA medyan yine <$100 — çünkü **para yönetimi zayıf
+   edge'i kârlı yapamaz.** Asıl iş sinyal/AI filtresindedir.
+
+**4. Bu ortam (Claude konteyneri) internetsizdir (allowlist).**
+Gerçek veri çekimi `emir/` altındaki GitHub Actions workflow'larıyla yapılır
+(runner'ın interneti var). Veri anahtarsız public uçlardan çekilir; Binance
+geo-block olursa Bybit/OKX'e düşer.
+
+**GÜNCELLENMİŞ KURAL:** Hiçbir backtest/WR iddiası, GERÇEK veriyle (mock değil)
+ve komisyon+slippage modellenerek doğrulanmadan canlı karara baz olamaz.
+ORP asla devre kesicisiz çalıştırılmaz.
