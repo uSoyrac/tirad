@@ -21,15 +21,17 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import time
 import urllib.request
 from dataclasses import dataclass
-from typing import List, Optional, Sequence, Tuple
+from typing import Callable, List, Optional, Sequence, Tuple
 
 sys.path.insert(0, ".")
 from pa import data as datamod                 # noqa: E402
 from pa.types import Bias, Candle, Side         # noqa: E402
 from pa.setup import build_setup               # noqa: E402
 from pa.analyze import htf_bias                 # noqa: E402
+from pa.pdarray import premium_discount         # noqa: E402
 
 WARMUP = 60
 HORIZON = 120
@@ -54,6 +56,11 @@ class Trade:
     net_R: float
     mfe_R: float
     mae_R: float
+    # teşhis boyutları
+    stop_pct: float = 0.0
+    entry_type: str = "?"       # OB | FVG
+    pd_zone: str = "?"          # premium | discount | equilibrium
+    hour: int = -1             # giriş UTC saati
 
 
 def htf_bias_at(htf: Sequence[Candle], ts_ms: int, htfms: int, k: int) -> Bias:
@@ -139,9 +146,10 @@ def _simulate(s, candles: Sequence[Candle], i: int,
 def backtest(entry: Sequence[Candle], htf: Optional[Sequence[Candle]],
              htf_tf: str, k: int, maker: float, taker: float, slip: float,
              part_frac: float, part_at: float, min_stop_pct: float,
-             funding: Optional[List[Tuple[int, float]]], fund_thr: float):
+             funding: Optional[List[Tuple[int, float]]], fund_thr: float,
+             pd_gate: bool = False):
     trades: List[Trade] = []
-    skip_htf = skip_stop = skip_fund = no_fill = 0
+    skip_htf = skip_stop = skip_fund = skip_pd = no_fill = 0
     htfms = tf_ms(htf_tf) if (htf and htf_tf) else 0
     n = len(entry)
     i = WARMUP
@@ -161,6 +169,15 @@ def backtest(entry: Sequence[Candle], htf: Optional[Sequence[Candle]],
                 skip_htf += 1
                 i += 1
                 continue
+        if pd_gate:                                   # ICT: long discount, short premium
+            pdg = premium_discount(entry[: i + 1], k=k)
+            z = pdg.zone(s.entry) if pdg else "?"
+            ok = (s.side == Side.LONG and z == "discount") or \
+                 (s.side == Side.SHORT and z == "premium")
+            if not ok:
+                skip_pd += 1
+                i += 1
+                continue
         if funding is not None:                       # Option 2: kalabalığı fade
             fr = funding_at(funding, entry[i].ts)
             if fr is not None:
@@ -174,9 +191,17 @@ def backtest(entry: Sequence[Candle], htf: Optional[Sequence[Candle]],
             no_fill += 1
             i += 1
             continue
+        # teşhis boyutlarını doldur
+        t.stop_pct = s.stop_pct
+        t.entry_type = ("OB" if any("OB" in r for r in s.reasons)
+                        else "FVG" if any("FVG" in r for r in s.reasons) else "?")
+        pd = premium_discount(entry[: i + 1], k=k)
+        t.pd_zone = pd.zone(s.entry) if pd else "?"
+        t.hour = time.gmtime(entry[i].ts / 1000).tm_hour
         trades.append(t)
         i += 1
-    return trades, dict(htf=skip_htf, stop=skip_stop, fund=skip_fund, nofill=no_fill)
+    return trades, dict(htf=skip_htf, stop=skip_stop, fund=skip_fund,
+                        pd=skip_pd, nofill=no_fill)
 
 
 def _stats(trades: List[Trade]):
@@ -195,7 +220,7 @@ def report(trades, sk, portfolio, risk_pct) -> str:
     n, w, wr, avg_rr, gross, net, aml = _stats(trades)
     o = ["# TOPLAM"]
     o.append(f"  İşlem: {n}   [ele → HTF {sk['htf']} · dar-stop {sk['stop']} · "
-             f"funding {sk['fund']} · dolmadı {sk['nofill']}]")
+             f"PD {sk.get('pd', 0)} · funding {sk['fund']} · dolmadı {sk['nofill']}]")
     if n == 0:
         o.append("  ⚠️ İşlem yok.")
         return "\n".join(o)
@@ -206,6 +231,65 @@ def report(trades, sk, portfolio, risk_pct) -> str:
              + ("EDGE VAR ✓" if net > 0 else "edge yok ✗"))
     o.append(f"  $ NET (1R={per_R:.0f}$): {net * per_R:+.2f}$")
     o.append(f"  teşhis · kaybeden MFE: {aml:.2f} R")
+    return "\n".join(o)
+
+
+def _session(h: int) -> str:
+    if 0 <= h < 7:
+        return "Asya 00-06"
+    if 7 <= h < 12:
+        return "Londra 07-11"
+    if 12 <= h < 17:
+        return "NY 12-16"
+    return "geç 17-23"
+
+
+def _stop_bucket(p: float) -> str:
+    if p < 0.3:
+        return "<0.3%"
+    if p < 0.6:
+        return "0.3-0.6%"
+    if p < 1.0:
+        return "0.6-1%"
+    return ">1%"
+
+
+def _rr_bucket(r: float) -> str:
+    if r < 2.5:
+        return "<2.5"
+    if r < 4.0:
+        return "2.5-4"
+    return ">4"
+
+
+def _diag_block(trades: List[Trade], keyfn: Callable[[Trade], str],
+                title: str) -> str:
+    groups: dict = {}
+    for t in trades:
+        groups.setdefault(keyfn(t), []).append(t)
+    lines = [f"  {title}"]
+    for key in sorted(groups, key=lambda g: sum(x.net_R for x in groups[g])):
+        g = groups[key]
+        n = len(g)
+        net = sum(x.net_R for x in g)
+        w = sum(1 for x in g if x.gross_R > 0)
+        flag = "✓" if net > 0 else "✗"
+        lines.append(f"    {str(key):<14} n={n:<4} isabet={w / n * 100:>3.0f}%  "
+                     f"NET={net:+7.2f}R ({net / n:+.3f}/işl) {flag}")
+    return "\n".join(lines)
+
+
+def diagnose(trades: List[Trade]) -> str:
+    if not trades:
+        return "# TEŞHİS: işlem yok"
+    o = ["# GİRİŞ KALİTESİ TEŞHİSİ (kova bazında NET R)"]
+    o.append(_diag_block(trades, lambda t: t.side.value, "— Yön"))
+    o.append(_diag_block(trades,
+                         lambda t: f"{t.side.value}@{t.pd_zone}", "— Yön × PD-bölge (ICT)"))
+    o.append(_diag_block(trades, lambda t: t.entry_type, "— Giriş tipi"))
+    o.append(_diag_block(trades, lambda t: _stop_bucket(t.stop_pct), "— Stop genişliği"))
+    o.append(_diag_block(trades, lambda t: _rr_bucket(t.rr), "— Planlanan R/R"))
+    o.append(_diag_block(trades, lambda t: _session(t.hour), "— Seans (UTC)"))
     return "\n".join(o)
 
 
@@ -241,10 +325,13 @@ def main(argv=None) -> int:
     p.add_argument("--partial-at", type=float, default=1.0)
     p.add_argument("--min-stop-pct", type=float, default=0.0)
     p.add_argument("--funding-fade", action="store_true")
+    p.add_argument("--pd-gate", action="store_true",
+                   help="ICT PD kapısı: long sadece discount, short sadece premium")
     p.add_argument("--fund-thr", type=float, default=0.0001,
                    help="funding eşiği (oran, örn 0.0001 = %%0.01)")
     p.add_argument("--portfolio", type=float, default=1000.0)
     p.add_argument("--risk-pct", type=float, default=1.0)
+    p.add_argument("--diag", action="store_true", help="giriş kalitesi teşhisi")
     p.add_argument("-k", type=int, default=2)
     args = p.parse_args(argv)
 
@@ -254,7 +341,7 @@ def main(argv=None) -> int:
         symbols = symbols[:1]
 
     allt: List[Trade] = []
-    agg = dict(htf=0, stop=0, fund=0, nofill=0)
+    agg = dict(htf=0, stop=0, fund=0, pd=0, nofill=0)
     print(f"# tf={args.tf} htf={args.htf or '—'} limit={args.limit} "
           f"maker={args.maker_pct}% taker={args.taker_pct}% slip={args.slip_pct}% "
           f"| kısmi={args.partial_frac:g}@{args.partial_at:g}R "
@@ -270,7 +357,8 @@ def main(argv=None) -> int:
             continue
         tr, sk = backtest(entry, htf, args.htf or "", args.k, maker, taker, slip,
                           args.partial_frac, args.partial_at, args.min_stop_pct,
-                          fund if args.funding_fade else None, args.fund_thr)
+                          fund if args.funding_fade else None, args.fund_thr,
+                          args.pd_gate)
         allt += tr
         for kk in agg:
             agg[kk] += sk[kk]
@@ -280,6 +368,9 @@ def main(argv=None) -> int:
 
     print()
     print(report(allt, agg, args.portfolio, args.risk_pct))
+    if args.diag:
+        print()
+        print(diagnose(allt))
     return 0
 
 
