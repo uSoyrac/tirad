@@ -148,15 +148,24 @@ def backtest(entry: Sequence[Candle], htf: Optional[Sequence[Candle]],
              htf_tf: str, k: int, maker: float, taker: float, slip: float,
              part_frac: float, part_at: float, min_stop_pct: float,
              funding: Optional[List[Tuple[int, float]]], fund_thr: float,
-             pd_gate: bool = False):
+             pd_gate: bool = False, hours: Optional[set] = None,
+             sides: Optional[set] = None):
     trades: List[Trade] = []
-    skip_htf = skip_stop = skip_fund = skip_pd = no_fill = 0
+    skip_htf = skip_stop = skip_fund = skip_pd = skip_hr = no_fill = 0
     htfms = tf_ms(htf_tf) if (htf and htf_tf) else 0
     n = len(entry)
     i = WARMUP
     while i < n - 1:
         s = build_setup(entry[: i + 1], k=k)
         if not s.valid:
+            i += 1
+            continue
+        if hours is not None and time.gmtime(entry[i].ts / 1000).tm_hour not in hours:
+            skip_hr += 1
+            i += 1
+            continue
+        if sides is not None and s.side.value not in sides:
+            skip_hr += 1
             i += 1
             continue
         if min_stop_pct > 0 and s.stop_pct < min_stop_pct:
@@ -203,7 +212,7 @@ def backtest(entry: Sequence[Candle], htf: Optional[Sequence[Candle]],
         trades.append(t)
         i += 1
     return trades, dict(htf=skip_htf, stop=skip_stop, fund=skip_fund,
-                        pd=skip_pd, nofill=no_fill)
+                        pd=skip_pd, hr=skip_hr, nofill=no_fill)
 
 
 def _stats(trades: List[Trade]):
@@ -222,7 +231,8 @@ def report(trades, sk, portfolio, risk_pct) -> str:
     n, w, wr, avg_rr, gross, net, aml = _stats(trades)
     o = ["# TOPLAM"]
     o.append(f"  İşlem: {n}   [ele → HTF {sk['htf']} · dar-stop {sk['stop']} · "
-             f"PD {sk.get('pd', 0)} · funding {sk['fund']} · dolmadı {sk['nofill']}]")
+             f"PD {sk.get('pd', 0)} · saat/yön {sk.get('hr', 0)} · "
+             f"funding {sk['fund']} · dolmadı {sk['nofill']}]")
     if n == 0:
         o.append("  ⚠️ İşlem yok.")
         return "\n".join(o)
@@ -334,8 +344,17 @@ def main(argv=None) -> int:
     p.add_argument("--portfolio", type=float, default=1000.0)
     p.add_argument("--risk-pct", type=float, default=1.0)
     p.add_argument("--diag", action="store_true", help="giriş kalitesi teşhisi")
+    p.add_argument("--hours", default=None,
+                   help="sadece bu UTC saatlerinde gir (örn '7,8,9,10,11' = Londra)")
+    p.add_argument("--sides", default=None,
+                   help="sadece bu yönler (örn 'SHORT' veya 'LONG,SHORT')")
     p.add_argument("-k", type=int, default=2)
     args = p.parse_args(argv)
+
+    hours = ({int(h) for h in args.hours.split(",") if h.strip() != ""}
+             if args.hours else None)
+    sides = ({s.strip().upper() for s in args.sides.split(",") if s.strip()}
+             if args.sides else None)
 
     maker, taker, slip = args.maker_pct / 100, args.taker_pct / 100, args.slip_pct / 100
     symbols = [s.strip() for s in args.symbols.split(",") if s.strip()]
@@ -343,11 +362,12 @@ def main(argv=None) -> int:
         symbols = symbols[:1]
 
     allt: List[Trade] = []
-    agg = dict(htf=0, stop=0, fund=0, pd=0, nofill=0)
+    agg = dict(htf=0, stop=0, fund=0, pd=0, hr=0, nofill=0)
     print(f"# tf={args.tf} htf={args.htf or '—'} limit={args.limit} "
           f"maker={args.maker_pct}% taker={args.taker_pct}% slip={args.slip_pct}% "
           f"| kısmi={args.partial_frac:g}@{args.partial_at:g}R "
-          f"min_stop={args.min_stop_pct:g}% funding_fade={args.funding_fade}\n")
+          f"min_stop={args.min_stop_pct:g}% funding_fade={args.funding_fade} "
+          f"hours={sorted(hours) if hours else '—'} sides={sorted(sides) if sides else '—'}\n")
     for sym in symbols:
         try:
             entry, htf, fund = _load(args, sym)
@@ -360,7 +380,7 @@ def main(argv=None) -> int:
         tr, sk = backtest(entry, htf, args.htf or "", args.k, maker, taker, slip,
                           args.partial_frac, args.partial_at, args.min_stop_pct,
                           fund if args.funding_fade else None, args.fund_thr,
-                          args.pd_gate)
+                          args.pd_gate, hours, sides)
         allt += tr
         for kk in agg:
             agg[kk] += sk[kk]
