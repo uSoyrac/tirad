@@ -47,3 +47,5 @@ optimal_*.json
 news_gdelt.csv
 sigcache_*/
 uyg/src/mktdata_1h/
+bot/engine/data_*
+bot/engine/features_*
