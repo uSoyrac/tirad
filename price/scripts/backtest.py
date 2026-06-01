@@ -1,0 +1,400 @@
+"""Backtest / kural doğrulama (stdlib) — teşhis + gerçekçi maliyet.
+
+Look-ahead YOK. Setup yalnızca candles[:i+1] ile kurulur.
+
+Özellikler:
+  - HTF confluence filtresi (CLI'deki gibi; üst-TF yalnızca KAPANMIŞ mumlardan).
+  - Gerçekçi maliyet: giriş + hedef = MAKER (limit), stop = TAKER + slippage
+    (market). Notional ağırlıklı, R cinsinden düşülür → NET sonuç.
+  - Kısmi kâr-al + breakeven stop (--partial-frac).
+  - --min-stop-pct: fee'nin ezdiği aşırı dar stoplu setup'ları ele.
+  - Teşhis: MFE/MAE. Çok sembol; $ raporu.
+  - Option 2: funding filtresi (--funding-fade) — geçmiş funding ile kalabalığı
+    fade et (LONG yalnız funding<eşik, SHORT yalnız funding>+eşik).
+
+Kullanım:
+  python3 scripts/backtest.py --live --symbols BTC/USDT,ETH/USDT,SOL/USDT \\
+    --tf 1h --htf 4h --limit 1000 --partial-frac 0.5 --min-stop-pct 0.6
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+import time
+import urllib.request
+from dataclasses import dataclass
+from typing import Callable, List, Optional, Sequence, Tuple
+
+sys.path.insert(0, ".")
+from pa import data as datamod                 # noqa: E402
+from pa.types import Bias, Candle, Side         # noqa: E402
+from pa.setup import build_setup               # noqa: E402
+from pa.analyze import htf_bias                 # noqa: E402
+from pa.pdarray import build_pd_array            # noqa: E402
+
+WARMUP = 60
+HORIZON = 120
+PD_LOOKBACK = 50          # premium/discount dealing-range penceresi (mum)
+FAPI = "https://fapi.binance.com"
+_TF_S = {"1m": 60, "3m": 180, "5m": 300, "15m": 900, "30m": 1800,
+         "1h": 3600, "2h": 7200, "4h": 14400, "6h": 21600, "8h": 28800,
+         "12h": 43200, "1d": 86400, "3d": 259200, "1w": 604800}
+
+
+def tf_ms(tf: str) -> int:
+    if tf not in _TF_S:
+        raise ValueError(f"bilinmeyen TF: {tf}")
+    return _TF_S[tf] * 1000
+
+
+@dataclass
+class Trade:
+    symbol: str
+    side: Side
+    rr: float
+    gross_R: float
+    net_R: float
+    mfe_R: float
+    mae_R: float
+    # teşhis boyutları
+    stop_pct: float = 0.0
+    entry_type: str = "?"       # OB | FVG
+    pd_zone: str = "?"          # premium | discount | equilibrium
+    hour: int = -1             # giriş UTC saati
+
+
+def htf_bias_at(htf: Sequence[Candle], ts_ms: int, htfms: int, k: int) -> Bias:
+    usable = [c for c in htf if c.ts + htfms <= ts_ms]
+    if len(usable) < 4 * k + 5:
+        return Bias.NEUTRAL
+    return htf_bias(usable, k=k)
+
+
+def fetch_funding(symbol: str, limit: int = 1000) -> List[Tuple[int, float]]:
+    """(fundingTime_ms, rate) listesi (artan). Erişim yoksa boş döner."""
+    sym = symbol.replace("/", "").replace("-", "").upper()
+    url = f"{FAPI}/fapi/v1/fundingRate?symbol={sym}&limit={limit}"
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    with urllib.request.urlopen(req, timeout=15) as r:
+        data = json.loads(r.read().decode())
+    return [(int(d["fundingTime"]), float(d["fundingRate"])) for d in data]
+
+
+def funding_at(series: List[Tuple[int, float]], ts_ms: int) -> Optional[float]:
+    """ts_ms'den önceki son funding oranı (look-ahead yok)."""
+    val = None
+    for ft, rate in series:
+        if ft <= ts_ms:
+            val = rate
+        else:
+            break
+    return val
+
+
+def _simulate(s, candles: Sequence[Candle], i: int,
+              maker: float, taker: float, slip: float,
+              part_frac: float, part_at: float) -> Optional[Trade]:
+    n = len(candles)
+    is_long = s.side == Side.LONG
+    risk = abs(s.entry - s.stop)
+    if risk == 0:
+        return None
+    unit = s.entry / risk                  # fee(oransal) → R çevrim katsayısı
+    entry_cost = maker * unit              # giriş limit = maker (tam notional)
+    fill = None
+    mfe = mae = 0.0
+    part_done = False
+    stop_lvl = s.stop
+    realized = 0.0
+    for j in range(i + 1, min(i + 1 + HORIZON, n)):
+        c = candles[j]
+        if fill is None:
+            if c.low <= s.entry <= c.high:
+                fill = j
+            else:
+                continue
+        if is_long:
+            mfe = max(mfe, (c.high - s.entry) / risk)
+            mae = max(mae, (s.entry - c.low) / risk)
+            hit_stop = c.low <= stop_lvl
+            hit_part = c.high >= s.entry + part_at * risk
+            hit_tgt = c.high >= s.target
+        else:
+            mfe = max(mfe, (s.entry - c.low) / risk)
+            mae = max(mae, (c.high - s.entry) / risk)
+            hit_stop = c.high >= stop_lvl
+            hit_part = c.low <= s.entry - part_at * risk
+            hit_tgt = c.low <= s.target
+
+        if hit_stop:                        # ihtiyatlı: stop önce. market = taker+slip
+            g = realized + (0.0 if part_done else -1.0)
+            rem = (1.0 - part_frac) if part_done else 1.0
+            cost = entry_cost + (maker * unit * part_frac if part_done else 0.0) \
+                + (taker + slip) * unit * rem
+            return Trade(s.symbol, s.side, s.rr, g, g - cost, mfe, mae)
+        if part_frac > 0 and not part_done and hit_part:
+            part_done = True
+            stop_lvl = s.entry
+            realized = part_frac * part_at
+        if hit_tgt:                         # hedef limit = maker (tam çıkış)
+            g = realized + (1.0 - part_frac) * s.rr
+            cost = entry_cost + maker * unit
+            return Trade(s.symbol, s.side, s.rr, g, g - cost, mfe, mae)
+    return None
+
+
+def backtest(entry: Sequence[Candle], htf: Optional[Sequence[Candle]],
+             htf_tf: str, k: int, maker: float, taker: float, slip: float,
+             part_frac: float, part_at: float, min_stop_pct: float,
+             funding: Optional[List[Tuple[int, float]]], fund_thr: float,
+             pd_gate: bool = False, hours: Optional[set] = None,
+             sides: Optional[set] = None):
+    trades: List[Trade] = []
+    skip_htf = skip_stop = skip_fund = skip_pd = skip_hr = no_fill = 0
+    htfms = tf_ms(htf_tf) if (htf and htf_tf) else 0
+    n = len(entry)
+    i = WARMUP
+    while i < n - 1:
+        s = build_setup(entry[: i + 1], k=k)
+        if not s.valid:
+            i += 1
+            continue
+        if hours is not None and time.gmtime(entry[i].ts / 1000).tm_hour not in hours:
+            skip_hr += 1
+            i += 1
+            continue
+        if sides is not None and s.side.value not in sides:
+            skip_hr += 1
+            i += 1
+            continue
+        if min_stop_pct > 0 and s.stop_pct < min_stop_pct:
+            skip_stop += 1
+            i += 1
+            continue
+        if htf:
+            hb = htf_bias_at(htf, entry[i].ts, htfms, k)
+            want = Bias.BULLISH if s.side == Side.LONG else Bias.BEARISH
+            if hb != Bias.NEUTRAL and hb != want:
+                skip_htf += 1
+                i += 1
+                continue
+        if pd_gate:                                   # ICT: long discount, short premium
+            pdg = build_pd_array(entry[: i + 1], lookback=PD_LOOKBACK)
+            z = pdg.zone(s.entry)
+            ok = (s.side == Side.LONG and z == "discount") or \
+                 (s.side == Side.SHORT and z == "premium")
+            if not ok:
+                skip_pd += 1
+                i += 1
+                continue
+        # (z yukarıda pd_gate açıkken hesaplandı; teşhis için aşağıda da kullanılır)
+        if funding is not None:                       # Option 2: kalabalığı fade
+            fr = funding_at(funding, entry[i].ts)
+            if fr is not None:
+                # LONG yalnız funding düşükse (shortlar kalabalık), SHORT tersi
+                if s.side == Side.LONG and fr > fund_thr:
+                    skip_fund += 1; i += 1; continue
+                if s.side == Side.SHORT and fr < -fund_thr:
+                    skip_fund += 1; i += 1; continue
+        t = _simulate(s, entry, i, maker, taker, slip, part_frac, part_at)
+        if t is None:
+            no_fill += 1
+            i += 1
+            continue
+        # teşhis boyutlarını doldur
+        t.stop_pct = s.stop_pct
+        t.entry_type = ("OB" if any("OB" in r for r in s.reasons)
+                        else "FVG" if any("FVG" in r for r in s.reasons) else "?")
+        pd = build_pd_array(entry[: i + 1], lookback=PD_LOOKBACK)
+        t.pd_zone = pd.zone(s.entry)
+        t.hour = time.gmtime(entry[i].ts / 1000).tm_hour
+        trades.append(t)
+        i += 1
+    return trades, dict(htf=skip_htf, stop=skip_stop, fund=skip_fund,
+                        pd=skip_pd, hr=skip_hr, nofill=no_fill)
+
+
+def _stats(trades: List[Trade]):
+    n = len(trades)
+    wins = [t for t in trades if t.gross_R > 0]
+    gross = sum(t.gross_R for t in trades)
+    net = sum(t.net_R for t in trades)
+    wr = len(wins) / n * 100 if n else 0
+    avg_rr = sum(t.rr for t in trades) / n if n else 0
+    loser_mfe = [t.mfe_R for t in trades if t.gross_R < 0]
+    aml = sum(loser_mfe) / len(loser_mfe) if loser_mfe else 0
+    return n, len(wins), wr, avg_rr, gross, net, aml
+
+
+def report(trades, sk, portfolio, risk_pct) -> str:
+    n, w, wr, avg_rr, gross, net, aml = _stats(trades)
+    o = ["# TOPLAM"]
+    o.append(f"  İşlem: {n}   [ele → HTF {sk['htf']} · dar-stop {sk['stop']} · "
+             f"PD {sk.get('pd', 0)} · saat/yön {sk.get('hr', 0)} · "
+             f"funding {sk['fund']} · dolmadı {sk['nofill']}]")
+    if n == 0:
+        o.append("  ⚠️ İşlem yok.")
+        return "\n".join(o)
+    per_R = portfolio * risk_pct / 100.0
+    o.append(f"  İsabet: {wr:.1f}%  ({w}K/{n - w}Z)")
+    o.append(f"  BRÜT beklenti/toplam: {gross / n:+.3f} R / {gross:+.2f} R")
+    o.append(f"  NET  beklenti/toplam: {net / n:+.3f} R / {net:+.2f} R   "
+             + ("EDGE VAR ✓" if net > 0 else "edge yok ✗"))
+    o.append(f"  $ NET (1R={per_R:.0f}$): {net * per_R:+.2f}$")
+    o.append(f"  teşhis · kaybeden MFE: {aml:.2f} R")
+    return "\n".join(o)
+
+
+def _session(h: int) -> str:
+    if 0 <= h < 7:
+        return "Asya 00-06"
+    if 7 <= h < 12:
+        return "Londra 07-11"
+    if 12 <= h < 17:
+        return "NY 12-16"
+    return "geç 17-23"
+
+
+def _stop_bucket(p: float) -> str:
+    if p < 0.3:
+        return "<0.3%"
+    if p < 0.6:
+        return "0.3-0.6%"
+    if p < 1.0:
+        return "0.6-1%"
+    return ">1%"
+
+
+def _rr_bucket(r: float) -> str:
+    if r < 2.5:
+        return "<2.5"
+    if r < 4.0:
+        return "2.5-4"
+    return ">4"
+
+
+def _diag_block(trades: List[Trade], keyfn: Callable[[Trade], str],
+                title: str) -> str:
+    groups: dict = {}
+    for t in trades:
+        groups.setdefault(keyfn(t), []).append(t)
+    lines = [f"  {title}"]
+    for key in sorted(groups, key=lambda g: sum(x.net_R for x in groups[g])):
+        g = groups[key]
+        n = len(g)
+        net = sum(x.net_R for x in g)
+        w = sum(1 for x in g if x.gross_R > 0)
+        flag = "✓" if net > 0 else "✗"
+        lines.append(f"    {str(key):<14} n={n:<4} isabet={w / n * 100:>3.0f}%  "
+                     f"NET={net:+7.2f}R ({net / n:+.3f}/işl) {flag}")
+    return "\n".join(lines)
+
+
+def diagnose(trades: List[Trade]) -> str:
+    if not trades:
+        return "# TEŞHİS: işlem yok"
+    o = ["# GİRİŞ KALİTESİ TEŞHİSİ (kova bazında NET R)"]
+    o.append(_diag_block(trades, lambda t: t.side.value, "— Yön"))
+    o.append(_diag_block(trades,
+                         lambda t: f"{t.side.value}@{t.pd_zone}", "— Yön × PD-bölge (ICT)"))
+    o.append(_diag_block(trades, lambda t: t.entry_type, "— Giriş tipi"))
+    o.append(_diag_block(trades, lambda t: _stop_bucket(t.stop_pct), "— Stop genişliği"))
+    o.append(_diag_block(trades, lambda t: _rr_bucket(t.rr), "— Planlanan R/R"))
+    o.append(_diag_block(trades, lambda t: _session(t.hour), "— Seans (UTC)"))
+    return "\n".join(o)
+
+
+def _load(args, symbol):
+    if args.live:
+        entry = datamod.fetch_ohlcv(symbol, args.tf, args.limit, args.exchange)
+        htf = (datamod.fetch_ohlcv(symbol, args.htf, args.limit, args.exchange)
+               if args.htf else None)
+    else:
+        entry, htf = datamod.load_csv(args.csv), None
+    fund = None
+    if args.funding_fade and args.live:
+        try:
+            fund = fetch_funding(symbol, 1000)
+        except Exception as e:  # noqa: BLE001
+            print(f"  [{symbol}] funding alınamadı: {e}", file=sys.stderr)
+    return entry, htf, fund
+
+
+def main(argv=None) -> int:
+    p = argparse.ArgumentParser(prog="backtest")
+    p.add_argument("--csv", default="data/sample_btc_1h.csv")
+    p.add_argument("--symbols", default="BTC/USDT")
+    p.add_argument("--tf", default="1h")
+    p.add_argument("--htf", default=None)
+    p.add_argument("--limit", type=int, default=1000)
+    p.add_argument("--exchange", default="binance")
+    p.add_argument("--live", action="store_true")
+    p.add_argument("--maker-pct", type=float, default=0.02)
+    p.add_argument("--taker-pct", type=float, default=0.05)
+    p.add_argument("--slip-pct", type=float, default=0.02)
+    p.add_argument("--partial-frac", type=float, default=0.0)
+    p.add_argument("--partial-at", type=float, default=1.0)
+    p.add_argument("--min-stop-pct", type=float, default=0.0)
+    p.add_argument("--funding-fade", action="store_true")
+    p.add_argument("--pd-gate", action="store_true",
+                   help="ICT PD kapısı: long sadece discount, short sadece premium")
+    p.add_argument("--fund-thr", type=float, default=0.0001,
+                   help="funding eşiği (oran, örn 0.0001 = %%0.01)")
+    p.add_argument("--portfolio", type=float, default=1000.0)
+    p.add_argument("--risk-pct", type=float, default=1.0)
+    p.add_argument("--diag", action="store_true", help="giriş kalitesi teşhisi")
+    p.add_argument("--hours", default=None,
+                   help="sadece bu UTC saatlerinde gir (örn '7,8,9,10,11' = Londra)")
+    p.add_argument("--sides", default=None,
+                   help="sadece bu yönler (örn 'SHORT' veya 'LONG,SHORT')")
+    p.add_argument("-k", type=int, default=2)
+    args = p.parse_args(argv)
+
+    hours = ({int(h) for h in args.hours.split(",") if h.strip() != ""}
+             if args.hours else None)
+    sides = ({s.strip().upper() for s in args.sides.split(",") if s.strip()}
+             if args.sides else None)
+
+    maker, taker, slip = args.maker_pct / 100, args.taker_pct / 100, args.slip_pct / 100
+    symbols = [s.strip() for s in args.symbols.split(",") if s.strip()]
+    if not args.live:
+        symbols = symbols[:1]
+
+    allt: List[Trade] = []
+    agg = dict(htf=0, stop=0, fund=0, pd=0, hr=0, nofill=0)
+    print(f"# tf={args.tf} htf={args.htf or '—'} limit={args.limit} "
+          f"maker={args.maker_pct}% taker={args.taker_pct}% slip={args.slip_pct}% "
+          f"| kısmi={args.partial_frac:g}@{args.partial_at:g}R "
+          f"min_stop={args.min_stop_pct:g}% funding_fade={args.funding_fade} "
+          f"hours={sorted(hours) if hours else '—'} sides={sorted(sides) if sides else '—'}\n")
+    for sym in symbols:
+        try:
+            entry, htf, fund = _load(args, sym)
+        except Exception as e:  # noqa: BLE001
+            print(f"  [{sym}] veri alınamadı: {e}", file=sys.stderr)
+            continue
+        if len(entry) < WARMUP + HORIZON:
+            print(f"  [{sym}] yetersiz mum ({len(entry)})", file=sys.stderr)
+            continue
+        tr, sk = backtest(entry, htf, args.htf or "", args.k, maker, taker, slip,
+                          args.partial_frac, args.partial_at, args.min_stop_pct,
+                          fund if args.funding_fade else None, args.fund_thr,
+                          args.pd_gate, hours, sides)
+        allt += tr
+        for kk in agg:
+            agg[kk] += sk[kk]
+        n, w, wr, _, _, net, _ = _stats(tr)
+        print(f"  [{sym}] {len(entry)} mum → işlem {n}, isabet {wr:.0f}%, "
+              f"NET {net:+.2f}R")
+
+    print()
+    print(report(allt, agg, args.portfolio, args.risk_pct))
+    if args.diag:
+        print()
+        print(diagnose(allt))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

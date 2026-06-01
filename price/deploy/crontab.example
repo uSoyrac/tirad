@@ -1,0 +1,10 @@
+# systemd yerine cron tercih edersen — `crontab -e` ile ekle.
+# Yolu ve kullanıcıyı kendine göre düzenle.
+
+# Her 15 dakikada bir tara (BÖLÜM 2 verisiyle), çıktıyı kendi log'una yaz.
+PA_SYMBOLS=BTC/USDT,ETH/USDT,SOL/USDT
+PA_ENTRY_TF=1h
+PA_HTF=4h
+PA_DATA=1
+
+*/15 * * * * cd /home/ubuntu/tirad/price && /usr/bin/python3 scripts/scan_once.py >> output/cron.log 2>&1
