@@ -1,0 +1,43 @@
+{
+    "features": [
+        "slope_10",
+        "slope_10_pct",
+        "accel_10",
+        "body",
+        "wick_upper",
+        "wick_lower",
+        "range",
+        "body_pct",
+        "is_pinbar_bull",
+        "is_pinbar_bear",
+        "swing_high_20",
+        "swing_low_20",
+        "dist_sh_pct",
+        "dist_sl_pct",
+        "fvg_bull",
+        "fvg_bear",
+        "fvg_bull_size",
+        "fvg_bear_size",
+        "liq_sweep_bull",
+        "liq_sweep_bear",
+        "cvd_10",
+        "cvd_10_norm",
+        "div_bear",
+        "div_bull",
+        "atr_14_pct",
+        "rsi_14",
+        "bb_width",
+        "is_squeeze"
+    ],
+    "best_params": {
+        "colsample_bytree": 0.8,
+        "learning_rate": 0.1,
+        "max_depth": 4,
+        "n_estimators": 300,
+        "subsample": 0.8
+    },
+    "metrics": {
+        "accuracy": 0.5048231511254019,
+        "precision": 0.36592292089249495
+    }
+}

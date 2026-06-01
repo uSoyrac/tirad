@@ -311,6 +311,27 @@ def backtest_symbol_v2(symbol: str, df_full: pd.DataFrame) -> dict:
     equity    = [CAPITAL]
     open_count = 0   # Bu sembol için (portföy sınırı dışarda uygulanır)
 
+    # ── AI Features Precomputation ────────────────────────────────────
+    import ta
+    df_full['adx'] = ta.trend.ADXIndicator(df_full['high'], df_full['low'], df_full['close'], window=14).adx()
+    df_full['vol_sma'] = df_full['volume'].rolling(20).mean()
+    df_full['vol_ratio'] = df_full['volume'] / df_full['vol_sma']
+    df_full['rsi'] = ta.momentum.RSIIndicator(df_full['close'], window=14).rsi()
+    macd = ta.trend.MACD(df_full['close'], window_slow=26, window_fast=12, window_sign=9)
+    df_full['macd_hist'] = macd.macd_diff()
+    df_full['ema_250'] = ta.trend.EMAIndicator(df_full['close'], window=250).ema_indicator()
+    df_full['atr_14'] = ta.volatility.AverageTrueRange(df_full['high'], df_full['low'], df_full['close'], window=14).average_true_range()
+    df_full['atr_pct'] = (df_full['atr_14'] / df_full['close']) * 100
+    df_full['dist_ema250_pct'] = ((df_full['close'] - df_full['ema_250']) / df_full['ema_250']) * 100
+    
+    import xgboost as xgb
+    import json
+    xgb_model = xgb.XGBClassifier()
+    xgb_model.load_model("bot/engine/v20_xgb_model.json")
+    with open("bot/engine/v20_xgb_meta.json", "r") as f:
+        meta = json.load(f)
+    xgb_features = meta["features"]
+
     # ── Trade durumu ──────────────────────────────────────────────────
     in_trade        = False
     t_dir           = ""
@@ -478,6 +499,24 @@ def backtest_symbol_v2(symbol: str, df_full: pd.DataFrame) -> dict:
 
         if comp < MIN_SCORE or trend == "NEUTRAL" or entry_ is None:
             continue
+
+        # ── 0. XGBoost AI Override ──────────────────────────────────
+        trend_val = 1 if trend == "BULLISH" else -1
+        last_closed = df_full.iloc[i-1]
+        features_dict = {
+            "adx": [last_closed["adx"]],
+            "vol_ratio": [last_closed["vol_ratio"]],
+            "rsi": [last_closed["rsi"]],
+            "macd_hist": [last_closed["macd_hist"]],
+            "atr_pct": [last_closed["atr_pct"]],
+            "dist_ema250_pct": [last_closed["dist_ema250_pct"]],
+            "trend_dir": [trend_val]
+        }
+        X_live = pd.DataFrame(features_dict)[xgb_features]
+        win_prob = xgb_model.predict_proba(X_live)[0][1]
+        
+        if win_prob < 0.44:
+            continue  # AI Reddedildi
 
         # ── 1. 1D Trend Filtresi ──────────────────────────────────
         trend_1d = _trend_1d(df_slice)

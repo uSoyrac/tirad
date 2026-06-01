@@ -176,13 +176,20 @@ class PositionSizer:
 
         risk_usdt = balance * risk_pct
 
-        # ── Kaldıraç ──────────────────────────────────────────────
+        # ── Kaldıraç ve V21 GERÇEKLİK KONTROLÜ (LİKİDİTE DUVARI) ──
         notional_needed = risk_usdt / sl_dist
         leverage        = math.ceil(notional_needed / balance)
         leverage        = max(1, min(leverage, _MAX_LEVERAGE))
         leverage        = min(leverage, self._max_leverage_by_score(signal_score))
 
         notional = balance * leverage
+        
+        # Binance $50,000 limitini uygula
+        _MAX_POS_USD = 50000.0
+        if notional > _MAX_POS_USD:
+            notional = _MAX_POS_USD
+            leverage = math.ceil(notional / balance) if balance > 0 else 1
+            risk_usdt = notional * sl_dist
 
         if notional < _MIN_NOTIONAL:
             return SizingResult(

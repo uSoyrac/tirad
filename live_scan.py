@@ -802,6 +802,49 @@ def analyze(symbol, is_bist=False):
     raw=smc_s+cl_s+inst_s+mtf_s
     composite=round((raw/37)*10,2)
 
+    # ─── V25 AI OVERRIDE (DEEP QUANT TRIPLE BARRIER) ──────────────────
+    win_prob = 0.0
+    if trend in ("BULLISH", "BEARISH") and len(df) > 250:
+        import xgboost as xgb, json, ta
+        from bot.engine.feature_engineer_v25 import engineer_features_v25
+        
+        if not hasattr(analyze, "xgb_model"):
+            analyze.xgb_model = xgb.XGBClassifier()
+            analyze.xgb_model.load_model("bot/engine/v25_xgb_model.json")
+            with open("bot/engine/v25_xgb_meta.json", "r") as f:
+                meta = json.load(f)
+            analyze.xgb_features = meta["features"]
+        
+        df_ta = df.copy()
+        try:
+            df_feats = engineer_features_v25(df_ta)
+            
+            # trend_dir is expected by some older/newer features if added manually
+            # But feature_engineer handles everything. Just pass it to predict.
+            if len(df_feats) > 0:
+                last_closed = df_feats.iloc[-1].to_dict()
+                
+                # Make sure all required features exist (some might be missing if we used custom ones before)
+                # But engineer_features generates them all.
+                X_live = pd.DataFrame([last_closed])
+                
+                # Sadece modelin beklediği sütunları seç (eksik varsa 0 ile doldur)
+                for f in analyze.xgb_features:
+                    if f not in X_live.columns:
+                        X_live[f] = 0.0
+                        
+                X_live = X_live[analyze.xgb_features]
+                win_prob = analyze.xgb_model.predict_proba(X_live)[0][1]
+                
+                if win_prob >= 0.44:
+                    composite = min(10.0, composite + 1.0)
+                    inst_det["AI"] = f"\033[92m✨ V25 DEEP QUANT ONAYI ✅ +1 (WinProb: %{win_prob*100:.1f})\033[0m"
+                else:
+                    composite = composite * 0.5
+                    inst_det["AI"] = f"\033[91m🚫 V25 DEEP QUANT REDDİ ❌ Puan Yarıya İndi (WinProb: %{win_prob*100:.1f})\033[0m"
+        except Exception as e:
+            inst_det["AI"] = f"\033[91m⚠️ V25 AI HATA: {e}\033[0m"
+
     # ─── Trade Setup ──────────────────────────────────────────
     entry_low=entry_high=sl=tp1=tp2=tp3=None
     if trend=="BULLISH":
@@ -978,7 +1021,7 @@ def print_full(r, soc):
         print(f"    Mention:   {soc_d.get('mentions',0)} kaynak")
 
     # Trade Setup
-    if r["entry_low"] and r["sl"] and total>=4.5:
+    if r["entry_low"] and r["sl"] and total>=3.5:
         mid=(r["entry_low"]+r["entry_high"])/2
         sl_pct=abs(mid-r["sl"])/mid*100
         lev=5 if total>=8 else(3 if total>=7 else 2)
@@ -1060,7 +1103,7 @@ def multi_tf_compound_plan(results, social):
         sk   = r["symbol"].replace("/USDT","").replace(".IS","")
         ss   = social.get(sk, {}).get("soc_score", 0)
         total= round(((r["raw"] + ss) / 37) * 10, 2)
-        if total < 4.5: continue
+        if total < 3.5: continue
 
         wr, rr, freq = _score_params(total)
         kf   = kelly_f(wr, rr)
@@ -1124,7 +1167,7 @@ def multi_tf_compound_plan(results, social):
 
 def print_compound_strategy(plan):
     if not plan or not plan.get("all"):
-        print(f"  {dim('Aktif sinyal yok (min 4.5 gerekli — önce bir tarama çalıştır)')}")
+        print(f"  {dim('Aktif sinyal yok (min 3.5 gerekli — önce bir tarama çalıştır)')}")
         return
 
     longs  = plan["long"]

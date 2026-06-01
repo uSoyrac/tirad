@@ -1,0 +1,22 @@
+{
+    "BNB_USDT": {
+        "adx_threshold": 20,
+        "tp_mult": 2.5
+    },
+    "XRP_USDT": {
+        "adx_threshold": 20,
+        "tp_mult": 2.5
+    },
+    "BTC_USDT": {
+        "adx_threshold": 20,
+        "tp_mult": 2.5
+    },
+    "SOL_USDT": {
+        "adx_threshold": 20,
+        "tp_mult": 2.5
+    },
+    "ETH_USDT": {
+        "adx_threshold": 20,
+        "tp_mult": 2.5
+    }
+}

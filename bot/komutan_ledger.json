@@ -1,0 +1,16 @@
+{
+    "balance": 10000.0,
+    "open_positions": [
+        {
+            "symbol": "XRP/USDT",
+            "entry_price": 1.3267,
+            "sl_price": 1.313812954882834,
+            "breakeven_target": 1.3438827268228881,
+            "atr_val": 0.008591363411444043,
+            "position_size": 20589.669515982045,
+            "entry_time": "2026-06-01T05:11:17.519482",
+            "is_breakeven_hit": false
+        }
+    ],
+    "trade_history": []
+}
