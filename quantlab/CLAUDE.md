@@ -218,6 +218,28 @@ expectancy OUT-OF-SAMPLE**. Not raw signal count, not in-sample return.
   metric is the WRONG objective for this book — chasing it lowers Sharpe. **Do NOT deploy
   the gate.** Best book stays the UNGATED diversified combo (OOS Sharpe ~1.74).
 
+## Edge MAXIMIZATION (higher-order derivatives, regression, walk-forward opt)
+- **Higher-order derivatives + regression feature sweep** (extended `research/orderflow.py`
+  with 3rd-deriv "jerk" + rolling-OLS "regression" families; re-ran the 8→10-family lab):
+  jerk adds nothing OOS (+0.007). **Regression (rolling-OLS slope + R² trend-cleanliness,
+  multi-window) is the FIRST family to clear the bar: OOS AUC 0.562→0.582 (+0.021)**,
+  top-10% gate win 40%, exp +0.50 ATR. Likely because R² (linear-trend vs chop) + slope
+  capture trend quality the base ADX/ER miss. Caveat: family-ALONE OOS AUC 0.499 (only
+  helps in combination), IS/OOS gap widens a touch.
+- **BUT gating the portfolio still HURTS** — even with the regression-enriched meta-label
+  and gentler keep-60%: combo OOS Sharpe 1.74→1.16. Confirmed across 2 meta-label variants
+  × 2 thresholds: per-trade quality gating disrupts cross-sectional momentum capture.
+  **Win-rate ≠ portfolio Sharpe — do not gate.** (Regression features are a real
+  trend-quality signal; they just don't help THIS momentum book as an entry veto.)
+- **★ Walk-forward parameter optimization (DONE, `scripts/run_wfopt.py`) — the honest
+  edge maximizer.** Precompute each param-combo's return stream; per WF window pick the
+  best trend (ROC×top_k) + carry (lookback×n_side) + inverse-vol weight on TRAIN, apply
+  to untouched TEST. **OOS Sharpe 1.74→2.25, MaxDD −13.5%→−8.5%** (full-span 2.43). Picks
+  are consistent (ROC30/top-1 fast-momentum + tight concentration every window ⇒ regime
+  adaptation, not param-chasing). This is the current best, fully-OOS, overfit-protected
+  result. ⚠️ Sharpe ~2.3 nears the literature "hunt-for-leak" line; still
+  survivorship-capped; top-1 = single-name variance. Paper-trade before any live capital.
+
 ## Data provenance caveat
 Phase 0 seeds the cache from `../uyg/src/mktdata/BTC_USDT_4h.csv` (repo's existing 4h
 BTC, 2021→2026). Re-fetch via `data/fetch.py` before trusting absolute price levels.

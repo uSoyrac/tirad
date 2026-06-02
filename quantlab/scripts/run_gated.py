@@ -61,8 +61,12 @@ def main(config_path: str, keep_top: float) -> None:
         fundings[sym] = fundmod.load_funding(fp)
     print(f"Loaded {len(frames)} coins. Training quality gate (keep top {keep_top:.0%})...")
 
-    model, thr = quality_gate.train_gate(frames, higher, cfg, keep_top=keep_top)
-    gated = quality_gate.gate_targets(frames, higher, targets, model, thr, cfg)
+    use_reg = "--reg" in sys.argv
+    model, thr = quality_gate.train_gate(frames, higher, cfg, keep_top=keep_top,
+                                         use_regression=use_reg)
+    gated = quality_gate.gate_targets(frames, higher, targets, model, thr, cfg,
+                                      use_regression=use_reg)
+    print(f"(regression features in gate: {use_reg})")
 
     # trend sleeve: ungated vs gated
     tr_un = run_portfolio(frames, targets, momentum, cfg, top_k=3)

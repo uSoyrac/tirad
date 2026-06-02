@@ -21,6 +21,34 @@ from ..indicators import atr, ema
 from .. config import BacktestConfig  # noqa: E402,F401 (kept for type hints / future use)
 
 
+def _rolling_ols(y: pd.Series, window: int) -> tuple[pd.Series, pd.Series]:
+    """Causal rolling OLS of y on a time ramp. Returns (slope, r2) per bar.
+
+    slope = trend strength over the window; r2 = trend CLEANLINESS (1 = perfectly
+    linear trend, ~0 = chop). A principled 'real trend vs fakeout' pair.
+    """
+    from numpy.lib.stride_tricks import sliding_window_view
+
+    yv = y.to_numpy(dtype=float)
+    n = len(yv)
+    slope = np.full(n, np.nan)
+    r2 = np.full(n, np.nan)
+    if n >= window:
+        r = np.arange(window, dtype=float)
+        rc = r - r.mean()
+        sxx = (rc**2).sum()
+        sw = sliding_window_view(yv, window)            # (n-window+1, window)
+        ybar = sw.mean(axis=1)
+        sl = (sw * rc).sum(axis=1) / sxx
+        ss_tot = ((sw - ybar[:, None]) ** 2).sum(axis=1)
+        ss_res = np.clip(ss_tot - sl**2 * sxx, 0.0, None)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            rr = np.where(ss_tot > 0, 1.0 - ss_res / ss_tot, np.nan)
+        slope[window - 1:] = sl
+        r2[window - 1:] = rr
+    return pd.Series(slope, index=y.index), pd.Series(r2, index=y.index)
+
+
 def _vel_acc(s: pd.Series, k: int, prefix: str) -> dict:
     """Velocity (k-bar diff), acceleration (diff of velocity), and their z-scores."""
     vel = s.diff(k)
@@ -121,6 +149,30 @@ def build_orderflow_features(
         oif = {k: v.shift(1) for k, v in oif.items()}
         feats.update(oif)
         fam["oi_ls_taker"] = list(oif.keys())
+
+    # ---- REGRESSION (rolling OLS slope + R² trend-cleanliness; multi-window) ----
+    reg = {}
+    logp = np.log(close.clip(lower=1e-9))
+    for w in (12, 24, 48):
+        sl, rr = _rolling_ols(logp, w)
+        reg[f"reg_slope_{w}"] = sl * 1000.0  # log-price slope, scaled to readable units
+        reg[f"reg_r2_{w}"] = rr
+    # velocity & acceleration of the 24-bar slope (does the trend's strength accelerate?)
+    reg |= _vel_acc(reg["reg_slope_24"], 4, "regslope4")
+    # clean-trend flag: strong positive slope AND high R² (linear, not choppy)
+    reg["reg_clean_up"] = ((reg["reg_slope_24"] > 0) & (reg["reg_r2_24"] > 0.6)).astype(float)
+    feats.update(reg)
+    fam["regression"] = list(reg.keys())
+
+    # ---- JERK (3rd derivative) of the main flow series ----
+    def _jerk(s, k, name):
+        return {name: s.diff(k).diff(k).diff(k)}
+    jerk = {}
+    jerk |= _jerk(vol, 4, "vol_jerk")
+    jerk |= _jerk(ret, 4, "ret_jerk")
+    jerk |= _jerk(cvd_run, 4, "cvd_jerk")
+    feats.update(jerk)
+    fam["jerk"] = list(jerk.keys())
 
     # ---- EXHAUSTION COMPOSITE (the headline hypothesis) ----
     up = close > ema(close, 20)
