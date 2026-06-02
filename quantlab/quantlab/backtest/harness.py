@@ -107,7 +107,12 @@ def run_backtest(
     def open_position(side: int, fill: float, atr_val: float, equity_now: float):
         nonlocal pos, units, entry_price, entry_ts, entry_equity, stop, tp, liq
         nonlocal cash, trade_fees, trade_funding
-        stop_dist = r.stop_atr_mult * atr_val
+        if r.stop_mode == "pct":
+            stop_dist = fill * r.stop_pct
+            tp_dist = fill * r.tp_pct if r.tp_pct else None
+        else:
+            stop_dist = r.stop_atr_mult * atr_val
+            tp_dist = r.tp_atr_mult * atr_val if r.tp_atr_mult else None
         u = fixed_fractional_units(equity_now, fill, stop_dist, _lev_capped(r, eff_max_lev))
         if u <= 0:
             return
@@ -117,7 +122,7 @@ def run_backtest(
         entry_ts = ts
         entry_equity = equity_now
         stop = fill - side * stop_dist
-        tp = fill + side * r.tp_atr_mult * atr_val if r.tp_atr_mult else float("nan")
+        tp = fill + side * tp_dist if tp_dist is not None else float("nan")
         liq = _liq_price(fill, side, eff_max_lev) if is_perp and eff_max_lev > 1 else float("nan")
         f = costs.fee(units * fill, c)
         cash -= f

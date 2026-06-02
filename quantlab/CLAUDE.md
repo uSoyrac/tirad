@@ -240,6 +240,27 @@ expectancy OUT-OF-SAMPLE**. Not raw signal count, not in-sample return.
   result. ⚠️ Sharpe ~2.3 nears the literature "hunt-for-leak" line; still
   survivorship-capped; top-1 = single-name variance. Paper-trade before any live capital.
 
+## Strategy bake-off — the best DECISION-MAKER (DONE, `scripts/run_bakeoff.py`)
+- Ran every strategy on the SAME OOS window (2025-26) with one honest accounting, plus
+  the june_2 'asymmetric sniper' CONCEPT re-implemented in our harness (perp/leverage/
+  %TP-SL with liquidation + kill-switches; harness now supports `stop_mode="pct"`).
+- **Decision quality (win-rate / "correct decisions"):** X-sec Top-3 momentum 41.8% win,
+  +$70 exp/trade, RoR 12% — highest win-rate AND positive. Supertrend/Ensemble BTC ~29%
+  (negative OOS). **Asymmetric sniper TP10/SL2 (1x, honest): 27.1% win, −$30 exp/trade
+  (NEGATIVE), RoR 67%** — +10%-before-−2% rarely happens in chop, so it wins too seldom
+  even at 2.31 payoff; catastrophic ruin risk.
+- **Risk-adjusted leaderboard (the real winner):** 1) Combo trend+funding Sharpe 1.74,
+  2) Funding 1.31, 3) X-sec momentum 1.12, then negatives (BH −0.16, sniper −0.32,
+  ensemble/supertrend ≈ −0.4). WF-optimized combo (separate) = 2.25.
+- **⚠️ june_2 sniper at 10x leverage HALTS in-sample** — a 2% stop = ~10-20% equity loss,
+  breaches the daily/total DD kill-switches → 0 OOS trades. The advertised leverage is
+  NOT survivable under honest risk limits, and the asymmetric R/R is negative-EV in chop.
+  Verdict on the june_2 bots: do not deploy; their backtests omit liquidation/gap and
+  use a full-sample top-X% threshold (look-ahead).
+- **ANSWER to "best decision bot":** highest hit-rate = X-sec Top-3 momentum (41.8%, and
+  it's also +EV); best SYSTEM (the real goal) = diversified combo (Sharpe 1.74, WF-opt
+  2.25). Win-rate ≠ best system — both reported so the difference is explicit.
+
 ## Data provenance caveat
 Phase 0 seeds the cache from `../uyg/src/mktdata/BTC_USDT_4h.csv` (repo's existing 4h
 BTC, 2021→2026). Re-fetch via `data/fetch.py` before trusting absolute price levels.

@@ -53,6 +53,11 @@ class RiskConfig(BaseModel):
     stop_atr_mult: float = 1.5
     tp_atr_mult: float | None = 3.5  # None => let the stop / signal exit handle it
     atr_period: int = 14
+    # Stop/TP geometry: "atr" (ATR-multiple, default) or "pct" (fixed % of entry,
+    # for asymmetric 'sniper' R/R like TP +10% / SL -2%).
+    stop_mode: Literal["atr", "pct"] = "atr"
+    stop_pct: float = 0.02
+    tp_pct: float | None = 0.10
     daily_dd_killswitch: float = 0.06  # flatten + pause for the day if breached
     total_dd_killswitch: float = 0.25  # flatten + halt the run if breached
 
