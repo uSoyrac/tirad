@@ -8,6 +8,20 @@
 
 ---
 
+## 🆕 2026-06-02 GÜNCELLEME — Final Bot + Yeni Testler
+
+**★ GENUINE KAZANÇ — Güven-bazlı dinamik sizing (V71 vizyonu, GÜVENLİ):** `uyg/june_2/optimal_final_confidence.py`. AI güvenine (proba) göre notional: düşük→0.6x, orta→1.25x, yüksek→2.5x (tavan, asla aşma; martingale DEĞİL). Sonuç: $250→**$1003 (+%77.7 CAGR, MDD%31, MAR 2.50)** — düz-0.6 (MAR 1.84) ve düz-2.5x (MAR 1.56) ikisini de risk-ayarlı GEÇER. Edge-ağırlıklı leverage = Kelly. ⚠️ DSR%31 → paper-trade.
+
+**Yeni testler (hepsi koşturuldu):**
+- **Gemini bot/engine V62-V72** (holy_grail/martingale/pyramid): LEVERAGE=10 + martingale ×2 → aynı sinyalde **$0 (İFLAS)**. Gerçek parayla ÇALIŞTIRMA. (uyg/june_2 "optimal_*" 4 botu ise GÜVENLİ — ayrı.)
+- **TP%2/SL%10 yüksek-WR sistemi:** WR%74 ama breakeven%83 altı; "kârlı" görünmesi backtest timeout'unun −%10'u kesmesinden. Gerçek çöküşte fat-tail → kırılgan. MDD%40-63. ELENDİ.
+- **"Türevin türevi"/Orderflow Exhaustion** (kullanıcı teorisi): 5 metrik 2.türev, walk-forward → NULL (ivme-işareti WR farkı ±0.1pp; accel feature'ları importance'ta son sırada). Public 4H veride exhaustion YOK (L2 emir-defteri gerekir).
+- **Doğruluk (WR) artışı:** ML kalite-kapısı ~%40→%44-48 (gerçek, doğrulanmış). Tavan ~%48-50; ötesi (orderflow/2.türev/MTF) hepsi elendi.
+
+**Final config:** classic_compound (donchian+supertrend+XGBoost gate) **+ güven-bazlı sizing (≤2.5x)**. Sıradaki: paper-trade.
+
+---
+
 ## ⚡ TL;DR — Nihai Durum
 
 | | |
