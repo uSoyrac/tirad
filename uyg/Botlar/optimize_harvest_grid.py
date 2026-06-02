@@ -1,22 +1,6 @@
 #!/usr/bin/env python3
 """
-═══════════════════════════════════════════════════════════════════════════════
-05 - DİNAMİK KELLY HASAT BOTU (Sentez)
-═══════════════════════════════════════════════════════════════════════════════
-
-Bu bot, 'Güvenli Hasat' botunun (+%5 TP / -%2.5 SL) kâr çekme mantığıyla,
-Claude'un 'Olasılık Bazlı Kelly Kriterini' sentezler.
-
-STRATEJİ:
-- AI Modeli: Smart Money İvmesi (En başarılı yön tayini)
-- Dinamik Kaldıraç (Kelly): Yapay Zeka bir işleme çok güveniyorsa (Örn: %85+)
-  10x'e kadar yüksek kaldıraç açar. Eğer az güveniyorsa (Örn: %60) daha düşük 
-  kaldıraçla riski azaltır.
-- Kâr Hedefi (TP): Varlık bazında %5. (Yüksek kaldıraçla anında %20-30 Kâr).
-- Zarar Kes (SL): Varlık bazında %2.5
-- Hasat Kuralı: Kasa $150'ye (veya üzerine) çıktığında aradaki farkı bankaya
-  çeker, kasayı tekrar $100'e eşitler.
-═══════════════════════════════════════════════════════════════════════════════
+GRID SEARCH OPTIMIZER FOR KELLY HARVEST
 """
 import os, sys, pickle, numpy as np, pandas as pd, warnings
 warnings.filterwarnings("ignore")
@@ -26,15 +10,13 @@ import ta, xgboost as xgb
 from signal_lab import atr
 from live_strategy import DONCHIAN, SUPERTREND
 
-# ── KONFİG ────────────────────────────────────────────────────────────────────
 DATA_DIR   = os.path.join(os.path.dirname(__file__), "../../bot/engine/data_v63")
 COINS      = ["BTC", "ETH", "SOL"]
-TP, SL     = 0.05, 0.025          # Sabit Güvenli Hasat Oranları
-HMAX       = 72                   
+TP, SL     = 0.05, 0.025
+HMAX       = 72
 COST       = 0.0018               
 OOS_START  = "2024-01-01"
-GATE_TOP   = 0.20                 # En güvenilir %20 sinyal
-HARVEST_TARGET = 150.0            # 150 dolara ulaşınca 50 Dolar Nakit çek
+GATE_TOP   = 0.20
 
 FEATS = ["rsi","macd","adx","atrp","bbpct","ema50d","ema200d","roc","cci","stochk","ci","er","volr","d","hour", "ts_accel", "tbr_accel"]
 
@@ -65,7 +47,6 @@ def _feats(df):
         ts_accel=ts_accel.to_numpy(), tbr_accel=tbr_accel.to_numpy())
 
 def build_signals(cache="/tmp/smartmoney_sigs.pkl"):
-    # TP 0.05, SL 0.025 için eski Safe Harvest cache'ini kullanıyoruz! Hızlı çalışır.
     if os.path.exists(cache): return pickle.load(open(cache,"rb"))
     rows=[]
     for c in COINS:
@@ -113,92 +94,71 @@ def walk_forward_proba(rows, test_years=("2024","2025","2026")):
             if str(r["et"])[:4]==y: P[i]=float(clf.predict_proba(np.array([r["x"]]))[:,1][0])
     return P
 
-def backtest_kelly_harvest(rows, P, starting_bankroll=100.0):
+def backtest_kelly_harvest(rows, P, starting_bankroll=100.0, target_harvest=120.0, max_lev=8.0):
     thr=np.quantile([P[i] for i in P], 1-GATE_TOP)
     eq = starting_bankroll
     
     total_harvested = 0.0
     harvest_count = 0
     bankruptcy_count = 0
-    total_injected = starting_bankroll
     
-    total_wins, total_losses = 0, 0
-    max_leverage_used = 0.0
     free = pd.Timestamp("2000")
     
     for i,r in enumerate(rows):
         if str(r["et"])<OOS_START or i not in P or P[i]<thr or r["et"]<free: continue
         
         prob = P[i]
+        kelly_fraction = max(0.1, prob - ((1.0 - prob) / 2.0))
         
-        # ── DINAMIK KELLY HESAPLAMASI ──
-        # Kelly = P - ((1-P) / (R/R)) -> R/R = (5% / 2.5%) = 2.0
-        kelly_fraction = prob - ((1.0 - prob) / 2.0)
-        
-        # Eğer Kelly 0'ın altındaysa zaten işleme girmemeli ama biz 0.1 minimum verelim
-        if kelly_fraction < 0.1: kelly_fraction = 0.1
-        
-        # Kelly oranını 10x ile çarparak Kaldıraç (Leverage) elde edelim. Max 8x sınır koyalım.
-        dynamic_leverage = min(10.0, kelly_fraction * 15.0)
-        max_leverage_used = max(max_leverage_used, dynamic_leverage)
-        
+        dynamic_leverage = min(max_lev, kelly_fraction * 15.0)
         notional = dynamic_leverage
         
         g = notional * (r["ret"] - COST)
         eq *= (1 + g)
         free = r["xt"]
         
-        if g > 0: total_wins += 1
-        else: total_losses += 1
-        
-        # Hasat Kontrolü (120 Dolar)
-        if eq >= HARVEST_TARGET:
+        if eq >= target_harvest:
             harvest_amount = eq - starting_bankroll
             total_harvested += harvest_amount
             harvest_count += 1
-            eq = starting_bankroll  # Kârı bankaya çektik, 100 dolara sıfırlandık.
+            eq = starting_bankroll
             
-        # İflas Kontrolü
         elif eq <= 0.0:
             bankruptcy_count += 1
             eq = starting_bankroll
-            total_injected += starting_bankroll
             
-    net_overall = total_harvested + eq - total_injected
-    wr = (total_wins / (total_wins + total_losses) * 100) if (total_wins + total_losses) > 0 else 0
-    
     return dict(harvest_count=harvest_count, harvested=total_harvested, 
-                bankruptcies=bankruptcy_count, injected=total_injected, 
-                eq=eq, net=net_overall, wr=wr, n=total_wins+total_losses,
-                max_lev=max_leverage_used)
+                bankruptcies=bankruptcy_count, eq=eq)
 
 def main():
-    print(__doc__)
-    print("Sinyaller hazırlanıyor (Safe Harvest Cache'i yükleniyor)...")
     rows=build_signals()
-    print("Yapay Zeka Geçmiş Verilerle Eğitiliyor...")
     P=walk_forward_proba(rows)
     
-    print("\n[ DİNAMİK KELLY HASAT BOTU ÇALIŞTIRILIYOR... ]")
-    r=backtest_kelly_harvest(rows, P, starting_bankroll=100.0)
+    harvest_targets = [110.0, 115.0, 120.0, 130.0, 150.0]
+    max_leverages = [5.0, 8.0, 10.0, 12.0, 15.0]
     
-    print("==========================================================")
-    print(f"  DİNAMİK KELLY HASADI (OOS {OOS_START}→2026, $100 Kasa)")
-    print("  Kural: Olasılığa Göre Kaldıraç Bas, 150 Dolarda Nakit Çek!")
-    print(f"  Max Kaldıraç Sınırı: 10.0x  |  Ulaşılan En Yüksek: {r['max_lev']:.1f}x")
-    print("==========================================================")
-    print(f"  Kazanma Oranı (Win Rate)              : %{r['wr']:.1f} ({r['n']} İşlem)")
-    print(f"  Başarılı Hasat (150'ye Ulaşma) Sayısı : {r['harvest_count']} Kez")
-    print(f"  Banka Hesabına Çekilen Saf Kâr        : ${r['harvested']:.2f}")
-    print(f"  İflas (Kasanın Sıfırlanma) Sayısı     : {r['bankruptcies']} Kez")
-    if r['bankruptcies'] == 0:
-        print("  DURUM                                 : HİÇ İFLAS ETMEDİ! (Mükemmel Güvenlik)")
-    else:
-        print(f"  İflas Sonrası Eklenen Sermaye         : ${r['injected'] - 100.0:.2f}")
-    print(f"  Mevcut İçeride (Trade'de) Kalan Kasa  : ${r['eq']:.2f}")
-    print("----------------------------------------------------------")
-    print(f"  2.5 Yıllık NET KÂR/ZARAR              : ${r['net']:+.2f}")
-    print("==========================================================")
+    results = []
+    
+    for ht in harvest_targets:
+        for ml in max_leverages:
+            r = backtest_kelly_harvest(rows, P, target_harvest=ht, max_lev=ml)
+            results.append((ht, ml, r['harvest_count'], r['harvested'], r['bankruptcies'], r['eq']))
+            
+    # Sadece İFLAS ETMEYEN (bankruptcies == 0) kombinasyonları kâra göre sıralayalım
+    valid = [x for x in results if x[4] == 0]
+    valid.sort(key=lambda x: x[3], reverse=True)
+    
+    print("\n" + "="*70)
+    print(" EN İYİ 'SIFIR İFLAS' HASAT KOMBİNASYONLARI (GRID SEARCH)")
+    print("="*70)
+    print(f"{'Hasat Hedefi':<15} | {'Max Kaldıraç':<15} | {'Maaş Sayısı':<15} | {'Toplam Kâr ($)':<15}")
+    print("-"*70)
+    
+    for i, v in enumerate(valid[:10]):
+        print(f"${v[0]:<14.1f} | {v[1]:<14.1f} | {v[2]:<15} | ${v[3]:<14.2f}")
+        
+    if not valid:
+        print("Sıfır iflas veren kombinasyon bulunamadı (Çok riskli).")
 
 if __name__=="__main__":
     main()
