@@ -1,0 +1,41 @@
+# Perp track: long + short, with REAL historical funding and liquidation modelled.
+# Tests the hypothesis that trend-following can profit in the 2025-26 downtrend by
+# shorting — something long-only spot structurally cannot do.
+
+data:
+  exchange: binance
+  symbol: BTC/USDT
+  market_type: perp        # enables shorting, funding, liquidation
+  timeframes: ["4h", "1d"]
+  start: 2021-01-01
+  end: 2026-05-31
+  cache_dir: data_cache
+  seed_csv: ../uyg/src/mktdata/BTC_USDT_4h.csv
+
+costs:
+  taker_fee: 0.0004
+  maker_fee: 0.0002
+  slippage_bps: 5.0
+  funding_enabled: true
+  funding_mode: historical # use the real 8h funding series
+  funding_interval_hours: 8
+
+risk:
+  bankroll: 10000.0
+  risk_per_trade: 0.01
+  max_leverage: 3.0
+  stop_atr_mult: 1.5
+  tp_atr_mult: 3.5
+  atr_period: 14
+  daily_dd_killswitch: 0.06
+  total_dd_killswitch: 0.25
+
+splits:
+  train_end: 2024-12-31
+  walk_forward: true
+  train_months: 24
+  test_months: 6
+  step_months: 6
+
+# ensemble / regime / mtf / orchestrator use defaults (entry_only gating).
+seed: 42

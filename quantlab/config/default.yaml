@@ -1,0 +1,38 @@
+# Canonical Phase 0 config. Everything that affects a result lives here.
+# Loaded and validated by quantlab.config.load_config.
+
+data:
+  exchange: binance
+  symbol: BTC/USDT
+  market_type: spot        # spot baseline; perp (funding + liquidation) arrives in Phase 1
+  timeframes: ["4h", "1d"] # primary (trading) TF first; 1d is the higher TF
+  start: 2021-01-01
+  end: 2026-05-31
+  cache_dir: data_cache
+  # Seed the parquet cache from the existing repo CSV so runs work fully offline.
+  seed_csv: ../uyg/src/mktdata/BTC_USDT_4h.csv
+
+costs:
+  taker_fee: 0.0004
+  maker_fee: 0.0002
+  slippage_bps: 5.0
+  funding_enabled: false
+
+risk:
+  bankroll: 10000.0
+  risk_per_trade: 0.01
+  max_leverage: 3.0
+  stop_atr_mult: 1.5
+  tp_atr_mult: 3.5
+  atr_period: 14
+  daily_dd_killswitch: 0.06
+  total_dd_killswitch: 0.25
+
+splits:
+  train_end: 2024-12-31    # bars on/before this date are in-sample; after = OOS
+  walk_forward: true
+  train_months: 24
+  test_months: 6
+  step_months: 6
+
+seed: 42
