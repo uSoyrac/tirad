@@ -261,6 +261,28 @@ expectancy OUT-OF-SAMPLE**. Not raw signal count, not in-sample return.
   it's also +EV); best SYSTEM (the real goal) = diversified combo (Sharpe 1.74, WF-opt
   2.25). Win-rate ≠ best system — both reported so the difference is explicit.
 
+## Winning Circle corpus mining (multi-agent) — NO new edge (honest)
+- ~60 PDFs (ICT/SMT/Killzone/Silver-Bullet, Wyckoff, order-flow/CVD/OI, liquidity+heat
+  maps, footprint, on-chain valuation, Al Brooks/Volman PA, psychology) deep-read by a
+  6-agent workflow (`scripts/winc_workflow.js`). ~90% is discretionary education /
+  psychology — not systematically backtestable.
+- **Untestable with our data (confirmed):** all ICT session machinery (killzone, Silver
+  Bullet, London-close, midnight-open, AMD) needs ≤5m intraday bars; liquidity/heat maps,
+  footprint, order blocks, true CVD, arbitrage need L2/tick; the entire on-chain block
+  (MVRV, SOPR, NUPL, URPD, realized price…) needs Glassnode/CryptoQuant entity data;
+  macro/news (DXY, NFP, F&G) needs external feeds. 200W/cycle ideas have ~3 samples (no power).
+- **The 4 testable concepts, all tested honestly as filters/sleeves on the momentum book
+  — ALL FAILED** (`scripts/winc_tests.py`, `scripts/run_sweepfade.py`, baseline Sharpe 1.12):
+  (A) killzone/session hour filter → ≤0.35; (B) Mayer-Multiple valuation gate → ≤1.07;
+  (C) SMT BTC/ETH breadth → ≤0.96; (D) liquidity-sweep/failed-breakout FADE (the corpus's
+  one codable kernel) → forward-return WORSE than baseline, sleeve OOS Sharpe −1.02.
+- **Recurring lesson (definitive):** every filter raises win-rate (41.8%→43-45%) but
+  lowers Sharpe — the momentum edge lives in big winners, not hit-rate. Raising the
+  "correct-decision rate" is easy and always hurts risk-adjusted return here.
+- **VERDICT: no holy grail in the corpus.** It adds nothing to the existing trend+funding
+  book (Sharpe 1.74 / WF-opt 2.25). The mining was thorough; the honest answer is the
+  book already captures the only durable edges these materials gesture at.
+
 ## Data provenance caveat
 Phase 0 seeds the cache from `../uyg/src/mktdata/BTC_USDT_4h.csv` (repo's existing 4h
 BTC, 2021→2026). Re-fetch via `data/fetch.py` before trusting absolute price levels.
