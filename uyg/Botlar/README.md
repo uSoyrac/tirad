@@ -17,6 +17,15 @@ Bu klasör (`uyg/Botlar`), yapay zeka (XGBoost) ve Smart Money 2. Türev ivmesi 
 - **Kullanım Amacı:** Botlara bağlamadan, "hangi coinde ne zaman long/short açmalıyım" diyorsanız, arkadaşınızın veya sizin ekranda sinyal kovalayacağınız araçtır.
 - **Özellikleri:** Piyasayı tarar, sadece En İyi %20 dilime giren "Kesin Fırsatları" bulduğunda ekrana sesli/yazılı olarak Giriş, TP ve SL seviyelerini basar.
 
+## 4. `04_Optimal_Sniper_Harvest.py` (Sentez: Başarısız Arşiv)
+- **Felsefesi:** Sniper (Asimetrik) vuruş gücüyle Hasatı birleştirmeyi denedik.
+- **Özellikleri:** Sniper stratejisinde bileşik büyüme zorunlu olduğu için kârı çekmek (Harvest) matematiksel olarak sistemi batırır. Bu kod "Neyin yapılmaması gerektiğini" göstermek için arşivlenmiştir.
+
+## 5. `05_Dinamik_Kelly_Hasat_Botu.py` (İkinci, Daha Kârlı Hasat Botu)
+- **Felsefesi:** Sabit kaldıraç yerine Yapay Zekanın kendine güvenine göre "Olasılık Bazlı (Kelly)" kaldıraç kullanır.
+- **Kullanım Amacı:** 02 Nolu botun %50 daha fazla kazandıran, optimize edilmiş (Grid Search ile hedefleri büyütülmüş) versiyonudur.
+- **Özellikleri:** AI sinyale çok güveniyorsa (Örn: %85) 10x'e kadar yüksek kaldıraç açar. Kasa 150 Dolar olduğunda işlemi kesip 50 Dolar Nakit çeker. İflas riski yine SIFIRDIR ancak çok daha agresif kâr elde eder. Kutsal kâsenin ta kendisidir.
+
 ---
 ### Nasıl Çalıştırılır?
 Terminalinizi (CMD/Bash) açıp klasöre gidin ve çalıştırmak istediğiniz botu yazın:
