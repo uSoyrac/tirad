@@ -28,7 +28,7 @@ from live_strategy import DONCHIAN, SUPERTREND
 
 # ── KONFİG ────────────────────────────────────────────────────────────────────
 DATA_DIR   = os.path.join(os.path.dirname(__file__), "../../bot/engine/data_v63")
-COINS      = ["BTC", "ETH", "SOL", "BNB", "XRP"]
+COINS      = ["BTC", "ETH", "SOL"]
 TP, SL     = 0.05, 0.025          # Sabit Güvenli Hasat Oranları
 HMAX       = 72                   
 COST       = 0.0018               
@@ -64,7 +64,7 @@ def _feats(df):
         ci=ci.to_numpy(), er=er.to_numpy(), volr=(vol/vol.rolling(20).mean()).to_numpy(), htf4h=htf,
         ts_accel=ts_accel.to_numpy(), tbr_accel=tbr_accel.to_numpy())
 
-def build_signals(cache="/tmp/smartmoney_top5_sigs.pkl"):
+def build_signals(cache="/tmp/smartmoney_sigs.pkl"):
     # TP 0.05, SL 0.025 için eski Safe Harvest cache'ini kullanıyoruz! Hızlı çalışır.
     if os.path.exists(cache): return pickle.load(open(cache,"rb"))
     rows=[]
