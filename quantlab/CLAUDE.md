@@ -334,6 +334,25 @@ expectancy OUT-OF-SAMPLE**. Not raw signal count, not in-sample return.
   (2) survivorship still uncorrected (separate issue). Green-lights the next levers
   (min-variance weights, orthogonal 3rd sleeve, fractional-Kelly sizing) and paper-trading.
 
+## H1 done RIGHT — breadth via EQUITIES, not shitcoins (`scripts/run_stocks.py`)
+- User's correct pushback: 80 shitcoins = FAKE breadth (BTC-corr ~0.8 → effective N tiny;
+  illiquid → slippage kills it; worst survivorship). Real breadth = a less-correlated,
+  liquid, large universe = STOCKS. Cross-sectional momentum is the canonical equity anomaly
+  (Jegadeesh-Titman), so it should transfer.
+- **Result — it does, strongly.** Cross-sectional momentum on 30 liquid US large-caps
+  (daily, top-5, 90d momentum): Full Sharpe 1.79, **OOS Sharpe 1.66**. Correlation to the
+  crypto momentum sleeve **+0.18** (low → genuinely orthogonal). **Crypto+US momentum
+  cross-asset blend: OOS Sharpe 2.13** (vs ~1.65 each alone) — real diversification breadth.
+- The funding sleeve is crypto-specific (doesn't transfer); on equities the orthogonal
+  partner would be a classic factor (value/low-vol/short-term-reversal) — future work.
+- Caveats: yfinance is survivorship-capped (today's large caps; needs point-in-time S&P
+  constituents for a clean magnitude); Sharpes are on the common (stock) trading-day
+  calendar (crypto weekends dropped — correct for a cross-asset book). MTF disabled for
+  the daily-stock path (yfinance datetime resolution vs merge_asof).
+- **Takeaway:** the real H1/breadth lever is CROSS-ASSET (crypto + US equities momentum),
+  not more crypto. BIST is a possible EM 3rd leg (momentum works in EM) but inferior on
+  liquidity/cost/TRY-distortion/data — US first.
+
 ## Data provenance caveat
 Phase 0 seeds the cache from `../uyg/src/mktdata/BTC_USDT_4h.csv` (repo's existing 4h
 BTC, 2021→2026). Re-fetch via `data/fetch.py` before trusting absolute price levels.
