@@ -44,6 +44,7 @@ def run_exam_for_month(rows, P, gate_top, start_date_str, max_kelly_lev=1.5):
     status = "ONGOING (Time Limit)"
     days_taken = 0
     first_trade_date = None
+    trades_today = 0
     
     for i,r in enumerate(rows):
         trade_date = r["et"]
@@ -56,13 +57,25 @@ def run_exam_for_month(rows, P, gate_top, start_date_str, max_kelly_lev=1.5):
         if current_day != trade_date.date():
             sodb = eq 
             current_day = trade_date.date()
+            trades_today = 0
             if first_trade_date is not None:
                 days_taken = (current_day - first_trade_date).days
+                
+        if trades_today >= 1:
+            continue # Günlük 1 işlem kotası (Concurrency Limit)
+            
+        trades_today += 1
                 
         prob = P[i]
         kf = max(0.1, prob - ((1.0 - prob)/2.0))
         lev = min(max_kelly_lev, kf * 15.0)
         
+        # Dinamik Kâr Tamponu (Eğer toplam kasa eksideyse riskleri çok sert daralt)
+        if eq < START_BALANCE * 0.98:
+            lev *= 0.5
+        if eq < START_BALANCE * 0.95:
+            lev *= 0.25 # Uçurumun kenarında mini risk
+            
         worst_floating_g = lev * (-0.025 - COST) if r["ret"] < 0 else lev * (-COST)
         floating_eq = eq * (1 + worst_floating_g)
         
