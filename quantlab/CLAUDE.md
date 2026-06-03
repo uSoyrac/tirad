@@ -320,6 +320,20 @@ expectancy OUT-OF-SAMPLE**. Not raw signal count, not in-sample return.
   (1H top5 XGBoost on bot/engine/data_v31) — not faithfully runnable in our framework, so
   not re-optimized here (would be guessing at their pipeline).
 
+## Overfitting honesty gate — Deflated Sharpe + PBO (DONE, `scripts/run_pbo.py`)
+- Bailey/de Prado test of whether the combo's edge is real or a lucky grid pick, over a
+  108-config combo family (trend ROC×topK blended with carry lb,n,rebal). T=1165 daily.
+- **Deflated Sharpe Ratio = 0.986** (>0.95): after deflating for N=108 trials + skew
+  (+1.57) + kurtosis (15.8), P(true Sharpe>0) ≈ 98.6%. Observed daily Sharpe 0.12 (ann
+  ~2.30) vs null expected-max 0.06 (ann ~1.16) — comfortably above the selection-bias floor.
+- **PBO = 0.031** (CSCV, S=16): in only 3% of IS/OOS splits does the IS-best config rank
+  below median OOS → selection GENERALIZES (opposite of overfit). Median logit +1.91.
+- **Verdict: the combo edge SURVIVES the honesty gate** — not a mirage of the grid. Caveats:
+  (1) DSR deflates for the 108-config family; the session's cross-FAMILY N is larger, so
+  treat DSR as upper-ish (PBO is family-internal and robust regardless — strong evidence);
+  (2) survivorship still uncorrected (separate issue). Green-lights the next levers
+  (min-variance weights, orthogonal 3rd sleeve, fractional-Kelly sizing) and paper-trading.
+
 ## Data provenance caveat
 Phase 0 seeds the cache from `../uyg/src/mktdata/BTC_USDT_4h.csv` (repo's existing 4h
 BTC, 2021→2026). Re-fetch via `data/fetch.py` before trusting absolute price levels.
