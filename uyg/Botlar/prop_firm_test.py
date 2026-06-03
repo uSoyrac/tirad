@@ -101,8 +101,8 @@ def main():
     r_smart = pickle.load(open("/tmp/smartmoney_sigs.pkl", "rb"))
     p_smart = walk_forward_proba(r_smart)
     
-    start_date = datetime(2024, 1, 1)
-    end_date = datetime(2025, 4, 1) # Test for 15+ months
+    start_date = datetime(2024, 10, 1)
+    end_date = datetime(2026, 5, 1) # Son 20 Ay
     
     current_test_date = start_date
     results = []
