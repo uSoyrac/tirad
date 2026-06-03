@@ -353,6 +353,23 @@ expectancy OUT-OF-SAMPLE**. Not raw signal count, not in-sample return.
   not more crypto. BIST is a possible EM 3rd leg (momentum works in EM) but inferior on
   liquidity/cost/TRY-distortion/data — US first.
 
+## Levers H2/H6/H4 tested on the 3-sleeve cross-asset book (`scripts/run_levers.py`)
+- Sleeves (daily, common-day): crypto-trend, crypto-funding, US-momentum. Correlation
+  matrix all low (−0.09..+0.18) → genuine diversification.
+- **H2 (orthogonal 3rd sleeve) — WINS.** 2-sleeve (crypto) inv-vol OOS Sharpe 1.85 →
+  **3-sleeve (cross-asset) 2.40, MaxDD −12%→−7%.** Adding US-momentum lifts Sharpe AND
+  halves drawdown — the √N breadth is real. **New best system.**
+- **H6 (weighting) — marginal.** equal/inv-vol/min-var ≈ 2.38/2.40/2.28; min-var does NOT
+  beat inv-vol. Robust weighting matters more than the exact scheme; keep inverse-vol.
+- **H4 (Kelly) — a sizing dial, not an edge.** f*≈17.8x (inflated by OOS-optimistic μ +
+  fat tails + survivorship → true f* far lower). ¼-Kelly: CAGR 213% / MaxDD −24%;
+  ½-Kelly −44%; full −72%. Sharpe is leverage-invariant. Honest ceiling ≤¼-Kelly given
+  kurtosis; even that = −24% DD. Don't over-lever an inflated/survivorship-capped edge.
+- **Cumulative best: 3-sleeve cross-asset book (crypto trend + crypto funding + US
+  momentum), inverse-vol, OOS Sharpe ~2.40, MaxDD −7%** — up from the 2-sleeve combo.
+  Caveats: 620 common-day sample (2023-03+, US/crypto overlap); survivorship in BOTH
+  universes; equity funding-analog sleeve still future work.
+
 ## Data provenance caveat
 Phase 0 seeds the cache from `../uyg/src/mktdata/BTC_USDT_4h.csv` (repo's existing 4h
 BTC, 2021→2026). Re-fetch via `data/fetch.py` before trusting absolute price levels.
