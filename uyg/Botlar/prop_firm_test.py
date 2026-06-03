@@ -11,7 +11,7 @@ from dateutil.relativedelta import relativedelta
 sys.path.append(os.path.join(os.path.dirname(__file__), '../src'))
 import ta, xgboost as xgb
 
-COST = 0.0018
+COST = 0.0028 # HARDCORE GERÇEKLİK: Slippage ve yüksek komisyon dahil
 START_BALANCE = 100000.0
 TARGET_PROFIT = 108000.0
 MAX_DAILY_DD_PCT = 0.05
@@ -76,7 +76,8 @@ def run_exam_for_month(rows, P, gate_top, start_date_str, max_kelly_lev=1.5):
         if eq < START_BALANCE * 0.95:
             lev *= 0.25 # Uçurumun kenarında mini risk
             
-        worst_floating_g = lev * (-0.025 - COST) if r["ret"] < 0 else lev * (-COST)
+        # HARDCORE GERÇEKLİK: Kazanan bir işlem bile kâra geçmeden önce sanki stop'a değecek kadar (-%2) sarkmış (Wick DD) varsayılır.
+        worst_floating_g = lev * (-0.025 - COST) if r["ret"] < 0 else lev * (-0.02 - COST)
         floating_eq = eq * (1 + worst_floating_g)
         
         if floating_eq < sodb * (1.0 - MAX_DAILY_DD_PCT):
