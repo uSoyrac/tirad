@@ -370,6 +370,23 @@ expectancy OUT-OF-SAMPLE**. Not raw signal count, not in-sample return.
   Caveats: 620 common-day sample (2023-03+, US/crypto overlap); survivorship in BOTH
   universes; equity funding-analog sleeve still future work.
 
+## Fibonacci levels tested (controlled) — range-MR real, fib ratios not magic
+- User thesis: in chop/range, price reverts at fib levels. Tested each level (0.236–0.786
+  from 5 screenshots) on pooled chop bars (ER<0.3), range=rolling-50, vs position-matched
+  NON-fib controls (`scripts/run_fib.py`). NO costs applied.
+- **Position curve:** chop reversion strengthens toward the UPPER range (0.6–0.9 bins:
+  +0.42% to +0.72% per 6 bars; price reverts DOWN from highs) — generic range MR, real and
+  asymmetric (fade the upper range in chop is the one nugget). Lower-middle weak.
+- **Fib-vs-control: MIXED/inconsistent.** 0.65 (+0.41% vs control), 0.618 (+0.13%), 0.377
+  (+0.15%) beat their controls; but 0.5 (−0.05%), 0.705 (−0.07%) lose; 0.786 ~tie. No
+  consistent sign → the specific Fibonacci ratios add NO edge beyond generic range
+  position. "0.618 is magic" not supported (0.65, a non-classic level, scored highest).
+- **Verdict:** the user's range-reversion intuition is partly real (upper-range fade in
+  chop), but the edge is range POSITION, not the fib ratios — and at ~0.07%/bar pre-cost
+  vs ~0.18% round-trip, it likely dies after costs (consistent with the earlier MR-sleeve
+  rejection). Not promoted. Honest nugget for future: an ASYMMETRIC upper-range fade in
+  chop could be explored as a sleeve, but must clear costs + correlation tests first.
+
 ## Data provenance caveat
 Phase 0 seeds the cache from `../uyg/src/mktdata/BTC_USDT_4h.csv` (repo's existing 4h
 BTC, 2021→2026). Re-fetch via `data/fetch.py` before trusting absolute price levels.
