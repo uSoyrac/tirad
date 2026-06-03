@@ -386,6 +386,12 @@ expectancy OUT-OF-SAMPLE**. Not raw signal count, not in-sample return.
   vs ~0.18% round-trip, it likely dies after costs (consistent with the earlier MR-sleeve
   rejection). Not promoted. Honest nugget for future: an ASYMMETRIC upper-range fade in
   chop could be explored as a sleeve, but must clear costs + correlation tests first.
+- **All 7 screenshots evaluated (incl. the later 0.886 + extension levels):** 0.886 reverts
+  +0.67% but its non-fib control +0.74% (control wins) → still range-position, not magic.
+  EXTENSION levels (−0.377, 1.377, 1.618, 1.66, 2.618, 3.618) have ZERO samples in the chop
+  regime — they are breakout/trend phenomena (price beyond the range), so they don't belong
+  to the range thesis at all (they're TP-targets; trend/breakout concepts already shown to
+  add no edge). Final: no Fibonacci ratio, across all configs, beats generic range position.
 
 ## Data provenance caveat
 Phase 0 seeds the cache from `../uyg/src/mktdata/BTC_USDT_4h.csv` (repo's existing 4h
