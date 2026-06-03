@@ -11,7 +11,9 @@ doğrulanmış 3 botu içerir. Hepsi aynı **doğrulanmış edge'i** kullanır
 |---|---|---|---|---|---|---|
 | **bot_kararli.py** | düz %60 | $480 | +%31 | %17 | 1.84 | En stabil, düşük drawdown |
 | **bot_dengeli.py** | düz 1.25x | ~$786 | +%60 | ~%30 | ~2.0 | Denge |
-| **bot_optimal.py** ⭐ | güven-bazlı (≤2.5x) | $1003 | +%77.7 | %31 | **2.50** | En iyi risk-ayarlı |
+| **bot_optimal.py** | güven-bazlı (≤2.5x) | $1003 | +%77.7 | %31 | 2.50 | En yüksek getiri |
+| **bot_rejim.py** ⭐ | rejim-bazlı | $865-977 | +%67 | %25 | **2.74** | Boğa/ayı otomatik ayar — EN İYİ MAR |
+| **bot_quantpro.py** | SHAP+CPCV+güven | $838 | +%65 | %29 | 2.26 | Kurumsal: CPCV+SHAP+shadow |
 
 (OOS 2024-2026 walk-forward, gerçekçi maliyet, tek-pozisyon, top5 1H)
 
