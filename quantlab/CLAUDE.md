@@ -305,6 +305,21 @@ expectancy OUT-OF-SAMPLE**. Not raw signal count, not in-sample return.
   real value to us was methodology (purged CV, IC, SHAP), which validated — not overturned —
   the existing conclusion.
 
+## Per-bot ML/WF optimization (DONE, `scripts/run_botopt.py`)
+- Optimized each quantlab bot individually via walk-forward parameter selection (train-fit
+  params applied to untouched test windows — the ML-optimization that works, vs
+  signal-gating which hurts). OOS 2025-26:
+  - **Momentum: 1.07 → 1.86** (WF consistently picks ROC30/top-1 — fast momentum, tight
+    concentration). Genuine improvement.
+  - **Funding: 1.31 → 0.24** — WF-opt HURTS; its regime-sensitive params don't persist OOS.
+    **Keep funding at its fixed default.**
+  - **Combo: 1.74 → 2.25** (proper per-window inverse-vol blend, `run_wfopt.py`).
+- **Lesson:** WF/parameter optimization is NOT universally good — it lifts momentum/combo
+  but overfits funding. Optimize where it generalizes; leave regime-sensitive edges fixed.
+- Other agents' bots (bot_kararli/dengeli/optimal/quantpro/rejim) use a different engine
+  (1H top5 XGBoost on bot/engine/data_v31) — not faithfully runnable in our framework, so
+  not re-optimized here (would be guessing at their pipeline).
+
 ## Data provenance caveat
 Phase 0 seeds the cache from `../uyg/src/mktdata/BTC_USDT_4h.csv` (repo's existing 4h
 BTC, 2021→2026). Re-fetch via `data/fetch.py` before trusting absolute price levels.
