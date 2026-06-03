@@ -283,6 +283,28 @@ expectancy OUT-OF-SAMPLE**. Not raw signal count, not in-sample return.
   book (Sharpe 1.74 / WF-opt 2.25). The mining was thorough; the honest answer is the
   book already captures the only durable edges these materials gesture at.
 
+## ML4T-grade XGBoost retrain (Jansen/de Prado methodology) — verdict holds
+- Applied the Machine-Learning-for-Trading rigor our earlier runs lacked
+  (`scripts/ml4t_train.py`): PURGED+EMBARGOED walk-forward CV (triple-barrier labels span
+  42 bars → overlapping windows leak in naive CV), Information Coefficient (IC) evaluation,
+  SHAP importance. Trained BOTH XGBoost (installed) and LightGBM on the pooled 18,777-
+  candidate panel.
+- **Leakage check (single 2025 split, price-only):** naive AUC 0.570 vs PURGED 0.567 —
+  purging barely moves it, so our earlier ~0.56 was NOT leakage-inflated; methodology was
+  sound. Single-split IC +0.10 looked promising.
+- **But across ALL regimes (purged 5-fold walk-forward): IC +0.02, AUC 0.513** (XGB
+  price-only); LightGBM same; **adding funding/OI/derivative features makes it WORSE
+  (AUC 0.501, IC ~0)** — reconfirms feature overfitting. The 2025 IC +0.10 was
+  regime-luck, not a stable signal.
+- **VERDICT (now methodologically airtight): no stable learnable directional edge.**
+  Best-practice ML4T CV + IC + XGBoost CONFIRMS the coin-flip finding across regimes. SHAP
+  top features are regime/vol/ret context (atr_pct, dist-from-extremes, adx) — the same
+  the rule system already uses. ML adds nothing; the edge is STRUCTURAL (cross-sectional
+  momentum + funding), not ML prediction. Note: IC ~0.02 is too weak/unstable to use even
+  as a probability-weighted size tilt (Grinold), so that path isn't pursued. The ML4T repo's
+  real value to us was methodology (purged CV, IC, SHAP), which validated — not overturned —
+  the existing conclusion.
+
 ## Data provenance caveat
 Phase 0 seeds the cache from `../uyg/src/mktdata/BTC_USDT_4h.csv` (repo's existing 4h
 BTC, 2021→2026). Re-fetch via `data/fetch.py` before trusting absolute price levels.
