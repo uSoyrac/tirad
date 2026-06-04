@@ -25,7 +25,14 @@ Gemini'nin kendi raporladığı sonuçlar. README.md'de detaylı.
 | 08 | `08_Prop_Firm_5K_Agresif_RR` | Sabit R/R (−%2/+%4) |
 | 09 | `09_Prop_Firm_5K_Kutsal_Kase_Hibrid` 👑 | −%1 sabit risk, patlamayı imkânsız kılan hibrid |
 | 10 | `10_Prop_Firm_50K_Son_6_Ay` 💎 | Hibrid'in 50K versiyonu, son-6-ay survivor |
+| 11 | `11_Live_MT5_Execution_Bot` 🔴 | **CANLI MT5 emir-yürütme botu** — gerçek hesapta emir gönderir |
 
+> **🔴 BOT 11 — CANLI YÜRÜTME UYARISI:** Bu bot backtest değil, **gerçek MetaTrader5
+> hesabında canlı emir gönderir.** quantlab disiplinine göre canlı sermaye için ÖNCE: (1)
+> forward paper-trade'in backtest'i tuttuğunu kanıtla, (2) survivorship'i düzelt, (3) küçük
+> sermaye + sıkı risk limiti. Doğrulanmamış bir edge'i canlı çalıştırmak parayı yakar. Test
+> edilmeden ÇALIŞTIRMA.
+>
 > **⚠️ quantlab harness denetimi (A ailesi):** Bu botların çekirdeği asimetrik TP/SL +
 > XGBoost "top-%5" kapısı. Bizim look-ahead'siz, likidasyon-modelleyen harness'ımızda:
 > asimetrik sniper **negatif-EV (RoR %67)**, 10x kaldıraç kill-switch'i patlatıyor; XGBoost
