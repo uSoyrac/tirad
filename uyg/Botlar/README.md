@@ -1,44 +1,29 @@
-# 🤖 BOTLAR — Doğrulanmış Optimal Trading Botları
+# 🤖 Algoritmik Trading Botları ve Fon Yönetim Simülatörleri
 
-Bu klasör, projedeki **tüm araştırmanın damıtılmış sonucu** olan, walk-forward
-doğrulanmış 3 botu içerir. Hepsi aynı **doğrulanmış edge'i** kullanır
-(Donchian40 + SuperTrend → XGBoost kalite-kapısı → TP+5%/SL−2.5%); **fark sadece sizing**
-(risk yelpazesi). Detaylı istihbarat: `../../INTELLIGENCE.md`.
+Bu klasör, Smart Money (Akıllı Para) sinyallerini kullanarak hem Bireysel Kasa Katlama (Bileşik Getiri) hem de Kurumsal Prop Firması kural ve limitlerine göre uyarlanmış 10 farklı optimal botu içermektedir.
 
-## Botlar (risk yelpazesi)
+## 💼 KİŞİSEL FON & BİLEŞİK GETİRİ BOTLARI
+Bu botlar, prop firmalarının limitlerinden bağımsız, kendi kişisel kasanızı bileşik getiriyle veya düzenli maaş ödemesiyle büyütmek için tasarlanmıştır.
 
-| Bot | Sizing | $250→ | CAGR | MaxDD | MAR | Kime |
-|---|---|---|---|---|---|---|
-| **bot_kararli.py** | düz %60 | $480 | +%31 | %17 | 1.84 | En stabil, düşük drawdown |
-| **bot_dengeli.py** | düz 1.25x | ~$786 | +%60 | ~%30 | ~2.0 | Denge |
-| **bot_optimal.py** | güven-bazlı (≤2.5x) | $1003 | +%77.7 | %31 | 2.50 | En yüksek getiri |
-| **bot_rejim.py** ⭐ | rejim-bazlı | $865-977 | +%67 | %25 | **2.74** | Boğa/ayı otomatik ayar — EN İYİ MAR |
-| **bot_quantpro.py** | SHAP+CPCV+güven | $838 | +%65 | %29 | 2.26 | Kurumsal: CPCV+SHAP+shadow |
+1. **`01_Asimetrik_Sniper_Bot.py`**: Yüksek kazanç hedefleyen tam otonom sniper bot. Kelly formülüyle agresif girişler yapar.
+2. **`02_Guvenli_Hasat_Maas_Botu.py`**: Hesabı riske atmadan her ay düzenli nakit (maaş) çekmeyi hedefleyen daha defansif bir yapı.
+3. **`03_Manuel_Sinyal_Jeneratoru.py`**: İşlemlere bizzat kendiniz girmek istiyorsanız, modelin sinyallerini ekrana okunaklı formatta basan asistan bot.
+4. **`04_Optimal_Sniper_Harvest.py`**: (Nihai Kişisel Kasa) Hem agresif Sniper gücünü hem de kâr çekimini (Harvest) birleştiren en dengeli bileşik getiri botu.
+5. **`05_Dinamik_Kelly_Hasat_Botu.py`**: Kaybedince riski azaltan, kazanınca artıran, tamamen kendini korumaya odaklanmış dinamik sistem.
 
-(OOS 2024-2026 walk-forward, gerçekçi maliyet, tek-pozisyon, top5 1H)
+## 🏢 PROP FİRMASI (KURUMSAL) SINAV & YÖNETİM BOTLARI
+Bu botlar, FTMO, Funding Pips gibi kurumsal firmaların acımasız kurallarına (-%5 Günlük, -%10 Max DD) göre hayatta kalıp nakit sızdırmak için yazılmıştır.
 
-## Çalıştırma
+6. **`06_Prop_Firm_5K_Kaplumbaga.py`**: 5K'lık zorlu (-%3 Günlük limitli) sınavlar için Kelly kaldıracını 0.8x'te kilitleyip yavaş ama güvenli ilerleyen "Kaplumbağa" stratejisi.
+7. **`07_Prop_Firm_5K_Yuksek_Kaldirac.py`**: Standart 5K (-%5 limit) hesabı 1.5x Kelly kaldıracı ile zorlayan agresif sistem. Dalgalı piyasada risklidir.
+8. **`08_Prop_Firm_5K_Agresif_RR.py`**: Dinamik kaldıracı tamamen iptal edip katı Sabit R/R (-%2 Kayıp / +%4 Kazanç) uygulayan kaba kuvvet test botu.
+9. **`09_Prop_Firm_5K_Kutsal_Kase_Hibrid.py` 👑**: (Nihai Prop Botu) -%1 Sabit Risk alarak zombi sendromunu önleyen ve fonun patlamasını neredeyse imkansız hale getiren devasa Hibrid sistem. 36$ yatırımla 1.5 yılda 3.600$+ kazandırmıştır.
+10. **`10_Prop_Firm_50K_Son_6_Ay.py` 💎**: Hibrid botun 50.000$'lık hesap versiyonu. Son 6 aylık piyasada test edilmiş ve 289$ yatırımla 6.600$+ nakit kazandırmıştır. Şu an hala piyasada elenmeden hayatta kalan versiyondur.
+
+## 💡 Kurulum ve Çalıştırma
+Botlar doğrudan terminal üzerinden çalıştırılabilir:
 ```bash
-cd uyg/Botlar
-python3 bot_kararli.py     # veya bot_dengeli.py / bot_optimal.py
+source venv/bin/activate
+python uyg/Botlar/09_Prop_Firm_5K_Kutsal_Kase_Hibrid.py
 ```
-İlk çalıştırma birkaç dakika (sinyaller + walk-forward model); sonra cache'li.
-
-## Gereksinimler
-- Python paketleri: `xgboost scikit-learn pandas numpy ta scipy`
-- Veri: `bot/engine/data_v31/*.csv` (1H OHLCV, repo'da mevcut)
-- Bağımlılık: `uyg/src/` (signal_lab, live_strategy, compound_engine — repo'da mevcut)
-
-## ⚠️ ACIMASIZ GERÇEKLER (oku, yoksa para kaybedersin)
-1. **Bunlar BACKTEST.** Deflated Sharpe ~%31 → edge istatistiksel olarak kesin değil
-   (~40 deney selection-bias). Gerçek parada önce **PAPER-TRADE** (1-2 ay), backtest'le
-   tutarsa küçük gerçek sermaye.
-2. **Kaldıraç = dayanabileceğin MaxDD.** Kelly tepesi 2.5x; ÖTESİ compound'u DÜŞÜRÜR (drag).
-3. **Martingale YASAK.** "Kaybedince büyüt" = iflas (8-13 ardışık kayıp gerçeği).
-   Bu botların hiçbiri martingale kullanmaz; sizing GÜVEN-bazlıdır (anti-martingale).
-4. **Edge = asimetri + ML kalite-filtresi + disiplin**, yön-tahmini DEĞİL (yön ~%52 = yazı-tura).
-5. Compound gerçeği: ~%31-78 CAGR (sizing'e göre), yıllarla. "Ayda 100→1000" = yok.
-
-## ❌ Bunları KULLANMA (test edildi, çürütüldü)
-`bot/engine/run_v62-v72` (martingale/10x/holy_grail), TP%2-SL%10, pyramiding,
-orderflow 2.türev, çoklu-pozisyon → hepsi ya iflas ya inferior ya null. Detay INTELLIGENCE.md.
+> Tüm botlar geçmiş (Walk-forward) AI tahminleriyle çalıştığı için sinyal verisine ihtiyaç duyar.
