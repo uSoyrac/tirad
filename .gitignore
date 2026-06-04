@@ -49,3 +49,6 @@ sigcache_*/
 uyg/src/mktdata_1h/
 bot/engine/data_*
 bot/engine/features_*
+uyg/src/metricsdata/
+uyg/src/basis_cache/
+uyg/src/xfunddata/
