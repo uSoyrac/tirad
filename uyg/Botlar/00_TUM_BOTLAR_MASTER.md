@@ -59,9 +59,32 @@ Detaylı per-bot README + AGENT.md + sonuçlar: **`ARSIV/01_xasset/` ... `ARSIV/
 
 ---
 
+## 🅲 COMPOUND ENGINE AİLESİ (Claude Opus) — `bot_kararli/dengeli/optimal/rejim/quantpro`
+1H ML-Scalp, bileşik-getiri odaklı, risk yelpazesi. Ortak motor: `../src/compound_engine.py`.
+Walk-forward OOS (2024-26) doğrulanmış; **AMA DSR/PBO kapısını tam geçmedi** (B ailesi kadar titiz değil).
+
+| Bot | Sizing | $250→ | CAGR | MaxDD | MAR |
+|---|---|---|---|---|---|
+| `bot_kararli.py` | düz %60 | $480 | +%31 | %17 | 1.84 |
+| `bot_dengeli.py` | düz 1.25x | $786 | +%61 | %32 | ~1.9 |
+| `bot_optimal.py` | güven-bazlı (≤2.5x) | $1003 | +%78 | %31 | 2.49 |
+| **`bot_rejim.py`** ⭐ | rejim-bazlı (boğa/ayı oto-ayar) | $865-977 | +%67 | %25 | **2.74** |
+| `bot_quantpro.py` | SHAP-stabil + CPCV + güven | $838 | +%65 | %29 | 2.26 |
+
+> **⚠️ Dürüstlük:** Bu ailenin **Deflated Sharpe ~%31**, **CPCV medyan ~%8** [%-16,+64] (P>0 %73).
+> Compound/MAR açısından çekici (özellikle `bot_rejim`), AMA istatistiksel güven `bot_xasset`'ten
+> (DSR 0.99) **düşük.** Edge = asimetri + ML kalite-filtresi, yön-tahmini değil (yön ~%52). Martingale yok.
+> Detay: **`README_COMPOUND.md`** + **`AGENT_COMPOUND.md`** + `../../INTELLIGENCE.md`. PAPER-TRADE adayı.
+
+Çalıştırma: `venv/bin/python uyg/Botlar/bot_rejim.py`  ·  Canlı gözlem: `shadow_papertrade.py`
+
+---
+
 ## 🎯 NİHAİ HÜKÜM
 - **En titiz-doğrulanmış, dayanıklı, dürüst sistem: `bot_xasset` (OOS Sharpe 2.40).**
   Tek edge'i kanıtlanmış (DSR 0.99, PBO 0.03), kollar ortogonal, çapraz-varlık breadth.
 - A ailesi (prop/sniper) görsel olarak etkileyici ama harness denetimi risk gösteriyor →
   paper-trade ile ileriye doğrula, kör güvenme.
+- C ailesi (compound engine): **compound/risk-ayarlı en iyi `bot_rejim` (MAR 2.74)** ama
+  DSR ~%31 (bot_xasset'in 0.99'undan düşük) → backtest çekici, istatistiksel güven daha az.
 - **Hepsi survivorship-capped ve PAPER-TRADE adayı.** İlk gerçek iş: forward paper doğrulama.
