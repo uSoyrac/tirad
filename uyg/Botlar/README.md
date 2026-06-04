@@ -1,22 +1,29 @@
-# 🤖 Algoritmik Trading Botları ve Prop Firm Simülatörleri
+# 🤖 Algoritmik Trading Botları ve Fon Yönetim Simülatörleri
 
-Bu klasör, Smart Money (Akıllı Para) sinyallerini kullanarak Prop Firması (FTMO, Funding Pips vb.) kural ve limitlerine göre uyarlanmış özel simülasyon botlarını içerir.
+Bu klasör, Smart Money (Akıllı Para) sinyallerini kullanarak hem Bireysel Kasa Katlama (Bileşik Getiri) hem de Kurumsal Prop Firması kural ve limitlerine göre uyarlanmış 10 farklı optimal botu içermektedir.
 
-## 🚀 Kutsal Kâse (Holy Grail) Botları
-Borsa mühendisliğimizin ulaştığı nihai nokta olan "Hibrid (Dayanıklılık + Sabit R/R)" botlarıdır.
-* **`prop_firm_journey_hybrid.py`**: 5.000$'lık hesaplar için optimize edilmiş nihai bot. İşlem başına %1 risk alır, zombi sendromuna yakalanmaz. 36$ yatırımla 1.5 yılda 3.600$+ kazandırmıştır.
-* **`prop_firm_journey_50k.py`**: Hibrid botun 50.000$'lık hesap versiyonu. Son 6 aylık piyasada simüle edilmiş ve 289$ yatırımla 6.600$+ nakit kazandırmıştır. Hesabı patlatmadan aylarca elde tutabilme özelliğine sahiptir.
+## 💼 KİŞİSEL FON & BİLEŞİK GETİRİ BOTLARI
+Bu botlar, prop firmalarının limitlerinden bağımsız, kendi kişisel kasanızı bileşik getiriyle veya düzenli maaş ödemesiyle büyütmek için tasarlanmıştır.
 
-## 🧪 Deneysel ve Temel Simülatörler
-Geliştirme sürecimizde test edilen ve borsanın matematiksel gerçeklerini ortaya çıkaran diğer botlarımız:
-* **`prop_firm_journey_5k.py`**: 5K'lık zorlu (%3 Günlük DD limitli) sınav için geliştirildi. Kelly formülü ile kaldıracı 0.8x'e sabitleyerek güvenli liman stratejisi uygular.
-* **`prop_firm_journey_5k_standard.py`**: 5K'lık standart (%5 Günlük DD limitli) sınav için geliştirildi. Kelly kaldıracını 1.5x'te serbest bıraktığı için dalgalı piyasada çabuk patlama riski taşır.
-* **`prop_firm_journey_rr.py`**: Kelly'nin tamamen devre dışı bırakıldığı, tamamen sabit R/R (Risk: -%2, Kazanç: +%4) uygulayan en agresif test botudur.
+1. **`01_Asimetrik_Sniper_Bot.py`**: Yüksek kazanç hedefleyen tam otonom sniper bot. Kelly formülüyle agresif girişler yapar.
+2. **`02_Guvenli_Hasat_Maas_Botu.py`**: Hesabı riske atmadan her ay düzenli nakit (maaş) çekmeyi hedefleyen daha defansif bir yapı.
+3. **`03_Manuel_Sinyal_Jeneratoru.py`**: İşlemlere bizzat kendiniz girmek istiyorsanız, modelin sinyallerini ekrana okunaklı formatta basan asistan bot.
+4. **`04_Optimal_Sniper_Harvest.py`**: (Nihai Kişisel Kasa) Hem agresif Sniper gücünü hem de kâr çekimini (Harvest) birleştiren en dengeli bileşik getiri botu.
+5. **`05_Dinamik_Kelly_Hasat_Botu.py`**: Kaybedince riski azaltan, kazanınca artıran, tamamen kendini korumaya odaklanmış dinamik sistem.
+
+## 🏢 PROP FİRMASI (KURUMSAL) SINAV & YÖNETİM BOTLARI
+Bu botlar, FTMO, Funding Pips gibi kurumsal firmaların acımasız kurallarına (-%5 Günlük, -%10 Max DD) göre hayatta kalıp nakit sızdırmak için yazılmıştır.
+
+6. **`06_Prop_Firm_5K_Kaplumbaga.py`**: 5K'lık zorlu (-%3 Günlük limitli) sınavlar için Kelly kaldıracını 0.8x'te kilitleyip yavaş ama güvenli ilerleyen "Kaplumbağa" stratejisi.
+7. **`07_Prop_Firm_5K_Yuksek_Kaldirac.py`**: Standart 5K (-%5 limit) hesabı 1.5x Kelly kaldıracı ile zorlayan agresif sistem. Dalgalı piyasada risklidir.
+8. **`08_Prop_Firm_5K_Agresif_RR.py`**: Dinamik kaldıracı tamamen iptal edip katı Sabit R/R (-%2 Kayıp / +%4 Kazanç) uygulayan kaba kuvvet test botu.
+9. **`09_Prop_Firm_5K_Kutsal_Kase_Hibrid.py` 👑**: (Nihai Prop Botu) -%1 Sabit Risk alarak zombi sendromunu önleyen ve fonun patlamasını neredeyse imkansız hale getiren devasa Hibrid sistem. 36$ yatırımla 1.5 yılda 3.600$+ kazandırmıştır.
+10. **`10_Prop_Firm_50K_Son_6_Ay.py` 💎**: Hibrid botun 50.000$'lık hesap versiyonu. Son 6 aylık piyasada test edilmiş ve 289$ yatırımla 6.600$+ nakit kazandırmıştır. Şu an hala piyasada elenmeden hayatta kalan versiyondur.
 
 ## 💡 Kurulum ve Çalıştırma
 Botlar doğrudan terminal üzerinden çalıştırılabilir:
 ```bash
 source venv/bin/activate
-python uyg/Botlar/prop_firm_journey_hybrid.py
+python uyg/Botlar/09_Prop_Firm_5K_Kutsal_Kase_Hibrid.py
 ```
 > Tüm botlar geçmiş (Walk-forward) AI tahminleriyle çalıştığı için sinyal verisine ihtiyaç duyar.

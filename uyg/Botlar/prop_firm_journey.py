@@ -31,7 +31,7 @@ def walk_forward_proba(rows, test_years=("2024","2025","2026")):
             if str(r["et"])[:4]==y: P[i]=float(clf.predict_proba(np.array([r["x"]]))[:,1][0])
     return P
 
-def run_journey(rows, P, gate_top=0.20, start_date_str="2024-12-01", max_kelly_lev=1.5):
+def run_journey(rows, P, gate_top=0.20, start_date_str="2024-12-01", max_kelly_lev=1.5, payout_threshold=None):
     thr=np.quantile([P[i] for i in P], 1-gate_top)
     
     eq = START_BALANCE
@@ -47,28 +47,22 @@ def run_journey(rows, P, gate_top=0.20, start_date_str="2024-12-01", max_kelly_l
     status = "ONGOING"
     career_start = pd.Timestamp(start_date_str)
     
-    # Canlı fona geçildiğinde ödeme takibi için
-    last_payout_month = None
-    
     for i,r in enumerate(rows):
         trade_date = r["et"]
         if trade_date < career_start: continue
         
-        # Payout Kontrolü (Sadece FUNDED aşamasındayken, ay değiştiğinde ödeme alınır)
+        # Akıllı Kâr Çekimi (On-Demand Payout)
         if phase == "FUNDED":
-            current_month = trade_date.month
-            if last_payout_month is None:
-                last_payout_month = current_month
-            elif current_month != last_payout_month:
-                # Ay değişti, ödeme var mı?
-                if eq > START_BALANCE:
-                    profit = eq - START_BALANCE
-                    trader_cut = profit * 0.80
-                    total_payouts += trader_cut
-                    payout_history.append((trade_date.date(), trader_cut))
-                    eq = START_BALANCE # Kasayı resetle
-                    sodb = START_BALANCE # SODB'u da resetle
-                last_payout_month = current_month
+            if not hasattr(run_journey, 'max_funded_eq'): run_journey.max_funded_eq = 100000
+            if eq > run_journey.max_funded_eq: run_journey.max_funded_eq = eq
+            
+            if payout_threshold is not None and eq >= START_BALANCE + payout_threshold:
+                profit = eq - START_BALANCE
+                trader_cut = profit * 0.80
+                total_payouts += trader_cut
+                payout_history.append((trade_date.date(), trader_cut))
+                eq = START_BALANCE # Kasayı resetle
+                sodb = START_BALANCE # SODB'u da resetle
 
         if i not in P or P[i]<thr: continue
         
@@ -78,7 +72,7 @@ def run_journey(rows, P, gate_top=0.20, start_date_str="2024-12-01", max_kelly_l
             trades_today = 0
                 
         if trades_today >= 1:
-            continue # Günlük 1 işlem kotası (Concurrency Limit)
+            continue # Günlük 1 işlem kotası
             
         trades_today += 1
                 
@@ -117,51 +111,59 @@ def run_journey(rows, P, gate_top=0.20, start_date_str="2024-12-01", max_kelly_l
         if phase == "PHASE_1" and eq >= target:
             phase = "PHASE_2"
             target = START_BALANCE * 1.05
-            eq = START_BALANCE # Faz geçince hesap sıfırlanır
+            eq = START_BALANCE
             sodb = START_BALANCE
-            print(f"[🔥 {trade_date.date()}] PHASE 1 GEÇİLDİ! (+%8 Hedef Vuruldu). Phase 2 Başlıyor...")
             
         elif phase == "PHASE_2" and eq >= target:
             phase = "FUNDED"
-            target = float('inf') # Artık hedef yok
-            eq = START_BALANCE # Canlı hesap sıfırdan başlar
+            target = float('inf')
+            eq = START_BALANCE
             sodb = START_BALANCE
-            last_payout_month = trade_date.month
-            print(f"[🚀 {trade_date.date()}] PHASE 2 GEÇİLDİ! (+%5 Hedef Vuruldu). CANLI (FUNDED) HESABA GEÇİLDİ!")
 
-    # Simülasyon Bitişi (Eğer patlamadıysa, son içeride kalan kârı da çek)
+    # Simülasyon Bitişi (Kalan ufak kârı çek)
     if phase == "FUNDED" and "YIKIM" not in status and eq > START_BALANCE:
         profit = eq - START_BALANCE
         trader_cut = profit * 0.80
         total_payouts += trader_cut
         payout_history.append(("FİNAL KAPANIŞ", trader_cut))
-        status = "GÖREV TAMAMLANDI (Piyasa Verisi Bitti, Sistem Hayatta)"
+        status = "GÖREV TAMAMLANDI"
+        
+    if hasattr(run_journey, 'max_funded_eq'):
+        print(f"DEBUG: Max Funded Equity Reached = {run_journey.max_funded_eq}")
         
     return status, phase, total_payouts, payout_history
 
 def main():
-    print("="*85)
-    print(" 🏙️  WALL STREET: NİHAİ PROP FIRM KARİYER SİMÜLATÖRÜ (Aralık 2024 Başlangıç) 🏙️")
-    print("="*85)
-    print("Sinyaller ve Yapay Zeka Yükleniyor...")
-    
     r_smart = pickle.load(open("/tmp/smartmoney_sigs.pkl", "rb"))
     p_smart = walk_forward_proba(r_smart)
     
-    # 2024 Aralık civarı AI düzenli sinyal üretmeye başlıyor. Oradan kariyeri başlatalım.
-    print("\n--- Kariyer Yolculuğu Başlıyor (100.000$ Başlangıç) ---\n")
+    thresholds = [1000, 2000]
+    start_dates = ["2025-04-01", "2025-06-01", "2025-09-01"] # Son 12 aydaki farklı başlangıç senaryoları
     
-    status, final_phase, total_payout, history = run_journey(r_smart, p_smart, gate_top=0.20, start_date_str="2024-12-01", max_kelly_lev=1.5)
-    
-    print("\n" + "="*85)
-    print(f"KARİYER SONUCU : {status}")
-    print(f"ULAŞILAN ZİRVE : {final_phase}")
     print("="*85)
-    print("💸 ÇEKİLEN NAKİT MAAŞ (PAYOUT) GEÇMİŞİ (NET %80 KÂR):")
-    for date, amount in history:
-         print(f"  - Tarih: {date} | Çekilen Nakit: ${amount:,.2f}")
-    print("-" * 85)
-    print(f"💰 TOPLAM KASAYA GİREN NET NAKİT: ${total_payout:,.2f}")
+    print(" 🏙️  WALL STREET: AKILLI KÂR ÇEKİMİ (ON-DEMAND PAYOUT) SİMÜLASYONU 🏙️")
+    print("="*85)
+    
+    for start in start_dates:
+        print(f"\n🚀 KARİYER BAŞLANGICI: {start}")
+        for th in thresholds:
+            print(f"  --- SENARYO: +{th}$ Kâr Eşiği (Hedef: {START_BALANCE + th}$) ---")
+            
+            run_journey.max_funded_eq = 100000
+            status, final_phase, total_payout, history = run_journey(
+                r_smart, p_smart, gate_top=0.20, start_date_str=start, 
+                max_kelly_lev=1.5, payout_threshold=th
+            )
+            
+            print(f"  Sonuç: {status}")
+            if total_payout > 0:
+                print("  💸 NAKİT ÇEKİMLERİ:")
+                for date, amount in history:
+                     print(f"    - {date} | Çekilen: ${amount:,.2f}")
+                print(f"  💰 TOPLAM CEBE GİREN: ${total_payout:,.2f}")
+            else:
+                print(f"  💰 TOPLAM CEBE GİREN: $0.00 (Max Bakiye: ${run_journey.max_funded_eq:,.2f})")
+            print("  " + "-"*50)
     print("="*85)
 
 if __name__ == "__main__":
