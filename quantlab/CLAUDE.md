@@ -361,6 +361,27 @@ expectancy OUT-OF-SAMPLE**. Not raw signal count, not in-sample return.
   prop firm where our DSR/PBO-real book actually applies; (b) paper-trade the crypto book; (c) a
   much larger intraday FX research effort (new data/infra, no promise). Capital-preserving call.
 
+## CRYPTO-NATIVE prop firms — our edge APPLIES here (`scripts/run_propfirm_multi.py`)
+- Unlike FundingPips (CFD), crypto-native firms trade REAL USDT perps with funding → our
+  DSR/PBO combo (cross-sectional momentum + funding carry) genuinely works. Firms (2026 rules):
+  HyroTrader (700+ Bybit perps; 1-step 10%/DD6%trail/daily4%/min10d; 2-step 10%+5%/DD10%trail/
+  daily5%; EOD-trailing DD; 80→90% split), Breakout (50+ pairs; 1-step 10%/DD6% STATIC/daily4%;
+  80%), FundedNext (8%+5%/DD10% static — but CFD crypto, funding sleeve WEAK → its number is
+  inflated). Multi-firm Monte-Carlo (combo, 0.6 haircut, sim Sharpe ~1.0, EOD trailing modeled):
+- **Results (P(funded) / funded blowup-per-month / ~monthly $ on $25K, at 10% vol):**
+  Breakout 1-step 48%/0.2%/$253; FundedNext 44%/0%/$254 (DISCOUNT — CFD funding); HyroTrader
+  2-step 35%/0%/$257; HyroTrader 1-step 42%/0.3%/$251. At 15% vol P(funded) rises to ~48-57%
+  but funded blowup climbs (Breakout-1 2.8%/mo). Expected cost-to-fund ~$350 (retries); payback
+  ~1-1.5 months. POSITIVE-EV IF edge holds forward + algo trading allowed + paper-first.
+- **Honest picks (judgment over the raw EV sort):** (1) HyroTrader = only firm where the FULL
+  edge is unambiguously real (real perps+funding+700-coin breadth) — trailing DD lowers pass
+  rate so use lower vol; safest "edge is real" bet. (2) Breakout = static DD (easier climb) +
+  real perps; best if it offers funding perps + allows algos. (3) FundedNext DISCOUNTED (CFD).
+  2-setting per firm: pass at ~10-15% vol, then DE-RISK funded to ~7-10% vol (protect account).
+- **★ MUST-VERIFY before buying:** does the firm ALLOW full algorithmic/API bot trading? Many
+  prop firms ban full automation. HyroTrader is API-to-Bybit (algo-friendly by design); confirm
+  Breakout. Make-or-break. Ask before any live API/order code.
+
 ## Raising the correct-decision rate — POOLED meta-label (DONE, `scripts/run_metalabel.py`)
 - Goal: increase the signal's hit rate / cull bad trades. (Reminder: for trend systems a
   low win rate is normal — the real target is EXPECTANCY; naive win-rate chasing via tight
