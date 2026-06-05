@@ -185,10 +185,69 @@ expectancy OUT-OF-SAMPLE**. Not raw signal count, not in-sample return.
   −27% reality, not the −14%; (3) Sharpe ~2.1 still nears the "hunt-for-leak" line, so paper
   evidence before live capital stands. Net: the diversification edge is real and broad, but
   the deployable EXPECTATION should be the haircut-adjusted, drawdown-honest version.
+## LEVER #1 — 4th orthogonal sleeve hunt (`scripts/run_sleeve4.py`) — NEGATIVE, honest
+- Tried the two canonical diversifiers to add to the 3-sleeve book (2.40): MACRO TSMOM
+  (time-series momentum on GLD/SLV/TLT/IEF/DBC/USO/UNG/UUP/DBA, inverse-vol, lagged, costed)
+  and EQUITY STR (short-term reversal on the US large-caps, dollar-neutral, costed).
+- **Correlation is beautifully orthogonal** (macro_tsmom 0.02–0.04 to all 3 sleeves;
+  equity_str −0.06..−0.18) — the diversification MECHANISM is present. **But both are
+  NEGATIVE standalone OOS 2025-26** (macro_tsmom Sharpe −0.72, equity_str −1.04), and
+  inverse-vol over-weights them (low vol → 0.59 / 0.41 weight) → the book DROPS
+  2.40 → 1.64 (+macro) / 1.36 (+str) / 0.88 (both). **Lesson: low correlation is necessary
+  but NOT sufficient — a sleeve must ALSO be ≥0 OOS to help; these lost money in this
+  window (a poor regime for macro trend, consistent with real managed-futures 2023-25).**
+- **Verdict: no improving 4th sleeve found among the natural candidates; 3-sleeve book
+  (OOS Sharpe 2.40) stands.** Did NOT keep trying sleeves until one accidentally helped OOS
+  (that would be the overfitting the project forbids). An equity value/quality or a
+  point-in-time-correct macro sleeve over a longer OOS could be revisited, but not promoted.
+
 - **Engine bug fixed in passing (`signals/mtf.py`):** pandas-3 `merge_asof` now enforces
   matching datetime resolution; ccxt data is `[ms]`, resample yields `[us]/[ns]` → the MTF
   merge raised `MergeError`. Coerced both keys to `ns` (`.as_unit("ns")`) — robust to any
   data source (ccxt/yfinance/resample), all 69 tests still pass.
+
+## LEVER #2 — vol-targeting / risk sizing (`scripts/run_sizing.py`) — the honest growth dial
+- Sharpe is leverage-invariant, so this adds NO alpha — it converts the robust 2.40-Sharpe
+  3-sleeve book into controlled compounding. Dynamic vol-target (20d LAGGED realized vol,
+  cap 3x): OOS Sharpe stays ~2.29 across all targets; you dial risk/return:
+  raw 35% CAGR/−7% DD → **15% target 49%/−10% (≈1.4x lev)** → 20% 68%/−13% → 25% 87%/−16%.
+- **Honest nuance:** in THIS smooth 2025-26 OOS, vol-targeting did NOT cut MaxDD (no vol
+  spike to catch) — the benefit was purely the risk-level dial, not drawdown reduction (the
+  de-risk payoff shows up in turbulent regimes). Static fractional-Kelly f*≈18.5x is inflated
+  (OOS-μ + survivorship + fat tails); even ¼-Kelly = −29% DD. **Safe band: 15% vol target +
+  ≤¼-Kelly.** The broad-44-coin book's −27% DD is tamed by the same vol target.
+- **Deliverable:** a 15% vol target (~1.4x avg leverage) roughly DOUBLES CAGR (35%→49%) at a
+  stomach-able −10% DD with Sharpe unchanged — real incremental money, no new edge required.
+
+## LEVER #3 — XGBoost CROSS-SECTIONAL RANKING (`scripts/run_mlrank.py`) — NEGATIVE, 4th confirm
+- A genuinely NEW ML use (not the failed binary gate): train XGBoost to predict each coin's
+  forward 60-bar (10d) return, pooled across 20 coins (162,877 train rows, 15 causal features,
+  train <2025), and use the prediction as the Top-K RANKING key in place of 60-bar ROC. The
+  selection mechanism ('hold Top-3 strongest') is unchanged — only 'strongest' is redefined.
+- **Result: ML ranking did NOT beat ROC and HURT the book.** Trend sleeve OOS Sharpe ROC 1.05
+  → ML 0.42; combo (trend+funding) ROC 1.71 → ML 1.27. **OOS rank-IC = −0.018** (≈0). Top
+  features (mtf_dir, donchian, supertrend, atr_pct, regime_adx) show the model just rediscovers
+  the trend/regime context ROC already encodes, without ranking forward returns any better.
+- **Verdict: ROC stays.** This is the 4th independent confirmation (Phase-3 single-asset AUC
+  0.52, pooled meta-label gate −Sharpe, ML4T purged-CV IC 0.02, and now cross-sectional
+  ranking IC −0.018) that there is NO learnable directional/return-prediction edge in this
+  data. ML adds noise, not money. The edge is STRUCTURAL (diversification + sizing), not ML.
+
+## LEVER #4 — XGBoost from LIVE trades (`scripts/watch_live.py:train_xgb_from_live`) — data-gated
+- Harness is ready (MIN_LIVE_TRADES=30): when ≥30 resolved local-shadow trades accumulate it
+  retrains on REAL live fills (survivorship-free, forward, no backtest bias). Currently the
+  live trades table is ~empty → nothing to train yet. Auto-triggers as live data accrues.
+  (Caveat: even with live data, prior evidence says don't expect a directional edge; this is
+  for honest forward validation, not a new alpha source.)
+
+## ★ '4-lever' synthesis (user: "how do we make MORE money?") — the honest answer
+- Of the 4 levers requested: **#1 4th sleeve = NO** (orthogonal but unprofitable OOS),
+  **#2 vol-targeting = YES** (the real money lever — no new alpha, 15% vol ⇒ CAGR 35%→49% at
+  −10% DD), **#3 XGBoost ranking = NO** (IC −0.018), **#4 XGBoost-from-live = data-gated**.
+- **Conclusion: more money comes from SIZING the existing robust structural edge (the 3-sleeve
+  book, OOS Sharpe 2.40, broad-44-coin-robust), NOT from more ML.** XGBoost has now failed 4
+  ways; the disciplined path is vol-targeted sizing (≤¼-Kelly ceiling) on the diversified book,
+  then point-in-time-universe + forward paper evidence before any live capital.
 
 ## Raising the correct-decision rate — POOLED meta-label (DONE, `scripts/run_metalabel.py`)
 - Goal: increase the signal's hit rate / cull bad trades. (Reminder: for trend systems a
