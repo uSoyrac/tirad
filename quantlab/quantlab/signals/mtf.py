@@ -24,11 +24,13 @@ def higher_tf_direction(base_df: pd.DataFrame, higher_df: pd.DataFrame, cfg: Bac
     direction = st["dir"]
 
     offset = _TF_OFFSET.get(mc.higher_tf, pd.Timedelta(days=1))
+    # Coerce both keys to ns resolution — data from different sources (ccxt 'ms',
+    # yfinance 's', resample 'us') otherwise trips pandas 3 merge_asof dtype check.
     avail = pd.DataFrame({
-        "ts": higher_df.index + offset,  # completion time of each higher-TF bar
+        "ts": (pd.DatetimeIndex(higher_df.index).as_unit("ns") + offset),  # bar completion time
         "dir": direction.to_numpy(),
     })
-    left = pd.DataFrame({"ts": base_df.index})
+    left = pd.DataFrame({"ts": pd.DatetimeIndex(base_df.index).as_unit("ns")})
     merged = pd.merge_asof(left, avail, on="ts", direction="backward")
     out = pd.Series(merged["dir"].to_numpy(), index=base_df.index, name="mtf_dir")
     return out.fillna(0.0)

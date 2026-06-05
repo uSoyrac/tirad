@@ -169,6 +169,27 @@ expectancy OUT-OF-SAMPLE**. Not raw signal count, not in-sample return.
   paper evidence via `run_paper.py` (extend it to the combined book); (4) ask before any
   live execution.
 
+## Survivorship / selection-bias PROXY — edge holds on a BROAD universe (`scripts/run_expanded.py`)
+- The 20-coin combo (Sharpe 1.74) was always open to the charge "you hand-picked 20 survivors."
+  We can't get truly-delisted coins from ccxt, but we CAN bound SELECTION bias: fetch the
+  top-liquidity USDT perps automatically (no hand-picking) and re-run the same combo.
+- **Result (44 coins auto-selected by 24h volume, 4h OHLCV+funding 2023→, OOS 2025-26, all
+  costs): combo OOS Sharpe 2.13 (CAGR 183%, MaxDD −27%) — HIGHER than the 20-coin 1.74, not
+  lower.** Crucially, **20 random 20-coin sub-universes drawn from the 44: median OOS Sharpe
+  1.73, 100% positive** — vs the fragile momentum-ONLY bootstrap (57% positive / 0.06 median).
+  The diversified combo is robust to which coins you pick; the 20-coin headline was NOT
+  cherry-picked. Selection bias is largely ruled out.
+- **Honest caveats unchanged:** (1) still no TRULY-delisted coins (all 44 are alive today) →
+  apply the literature survivorship haircut (~15–22%/yr) to the MAGNITUDE; (2) MaxDD −27% on
+  the broad universe is worse than the 20-coin −14% (more alts = fatter tails) → size for the
+  −27% reality, not the −14%; (3) Sharpe ~2.1 still nears the "hunt-for-leak" line, so paper
+  evidence before live capital stands. Net: the diversification edge is real and broad, but
+  the deployable EXPECTATION should be the haircut-adjusted, drawdown-honest version.
+- **Engine bug fixed in passing (`signals/mtf.py`):** pandas-3 `merge_asof` now enforces
+  matching datetime resolution; ccxt data is `[ms]`, resample yields `[us]/[ns]` → the MTF
+  merge raised `MergeError`. Coerced both keys to `ns` (`.as_unit("ns")`) — robust to any
+  data source (ccxt/yfinance/resample), all 69 tests still pass.
+
 ## Raising the correct-decision rate — POOLED meta-label (DONE, `scripts/run_metalabel.py`)
 - Goal: increase the signal's hit rate / cull bad trades. (Reminder: for trend systems a
   low win rate is normal — the real target is EXPECTANCY; naive win-rate chasing via tight
