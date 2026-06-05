@@ -410,6 +410,24 @@ expectancy OUT-OF-SAMPLE**. Not raw signal count, not in-sample return.
   Honest answer to "what would realistically happen": roughly break-even to a modest few-hundred
   $, driven entirely by fee-refundability + frequent profit-taking; do NOT expect compounding
   wealth. Testnet-validate first; the +$223 is the lucky path, +$23 the median.
+
+## LIVE screener + FUNDING-FLIP thesis (`scripts/screener.py`, `scripts/run_funding_flip.py`)
+- `screener.py`: live ccxt (Binance perp) — 24h volume-surge, OI 24h Δ, funding Δ + level
+  gainers/losers + funding-FLIP (sign change) detector. Read-only, no orders. Feeds the thesis.
+- **User's funding-squeeze thesis TESTED — and VALIDATED (it beat my prior assumption).** Event =
+  funding z-score extreme (|z|>1.5) THEN reversing toward zero. Two competing directions:
+  FADE (short crowded high-funding, our continuous-carry direction) vs UNWIND (follow the
+  fee-farmers' unwind, the USER's thesis). Pooled 20 coins, IS-optimal TP/SL applied OOS:
+  **FADE at the flip = NEGATIVE OOS (Sharpe −2 to −4); UNWIND = POSITIVE (best 8%/5% TP/SL,
+  OOS Sharpe +0.94, multiple cells positive).** So at the FLIP MOMENT the short-term move FOLLOWS
+  the unwind (momentum), opposite to the continuous-carry fade — the user's intuition was right.
+- **But cost-stress shows it is THIN/FRAGILE:** UNWIND OOS Sharpe 0.94 @6bps → 0.43 @11bps
+  (realistic Bybit taker round-trip) → −0.08 @16bps (alt spread). Per-trade edge ~9bps pre-cost.
+- **VERDICT:** the funding-flip-FOLLOW signal is a REAL but thin, cost-sensitive timing edge —
+  NOT a strong standalone (dies by 16bps). Best used exactly as the user proposed: as a
+  CONFLUENCE filter (take the unwind trade only when it AGREES with the combo trend/funding
+  signal), with maker orders to cut fees. Worth wiring as an overlay + testing it doesn't hurt
+  the combo (recall the meta-label gate HURT — confluence must be validated, not assumed).
 - **Funding-fee question (friend Emir):** partially right — funding can be high & is a periodic
   long↔short transfer. Two corrections: the EXCHANGE does NOT keep funding (it's peer-to-peer;
   the exchange takes separate TRADING commission), and the period is usually 8h not 12h. Key:
