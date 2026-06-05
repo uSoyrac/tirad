@@ -24,6 +24,13 @@ TP +%5 / SL −%2.5  ·  sizing (bot'a göre değişir)  ·  top5 1H
 | `bot_optimal.py` | güven-bazlı (≤2.5x) | $1003 | +%78 | %31 | 2.49 | En yüksek getiri |
 | **`bot_rejim.py`** ⭐ | rejim-bazlı (≤2.5x) | $865-977 | +%67 | **%25** | **2.74** | **EN İYİ MAR** — boğa/ayı otomatik ayar |
 | `bot_quantpro.py` | SHAP+CPCV+güven | $838 | +%65 | %29 | 2.26 | Kurumsal: SHAP-stabil feature + CPCV |
+| **`bot_multimarket.py`** ⭐ | 2-sleeve (kripto+hisse) | — | — | — | **Sharpe 1.42** | **EN YÜKSEK SHARPE** — korelasyonsuz hisse sleeve |
+
+### `bot_multimarket.py` — Vibe-Trading senaryosu (korelasyonsuz ikinci kol)
+Vibe-Trading'in çok-piyasa erişimiyle (yfinance), aynı metodu US hisse/ETF'lere uyguladık.
+Kripto-trend (Sharpe 1.31) + Hisse-trend (Sharpe 0.70), **rho=−0.20** → birleşik Sharpe **1.42-1.50**.
+Alpha Zoo (433 alpha) kripto'da çıkmadı (redundant/overfit); değer çok-piyasa çeşitlendirmesinde.
+Değer = getiri değil **risk-azaltma → güvenli kaldıraç**. (29 ay, forward doğrulama şart.)
 
 *(OOS 2024-2026 walk-forward, gerçekçi maliyet %0.18 round-trip, tek-pozisyon)*
 
