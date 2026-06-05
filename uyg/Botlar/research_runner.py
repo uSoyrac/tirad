@@ -149,7 +149,7 @@ def main():
     (OUT / "research.json").write_text(json.dumps(rep, ensure_ascii=False, indent=2))
     print(f"  DSR {dsr:.3f} | PBO {pbo:.3f} | param_drift {drift} | review {review}", flush=True)
     print(f"  -> {verdict}", flush=True)
-    print(f"  ✓ paper/research.json yazıldı.", flush=True)
+    print("  ✓ paper/research.json yazıldı.", flush=True)
 
 
 if __name__ == "__main__":
