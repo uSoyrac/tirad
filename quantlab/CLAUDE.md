@@ -838,3 +838,15 @@ literature estimates survivorship inflates crypto backtests ~15–22%/yr.
   of a strategy that's OOS-negative/whipsaw-prone.** Combo's neutrality is WHY it avoided the 2025 -36R
   bleed (feature, not bug). A regime-gated directional sleeve only helps IF regime-detection reliably
   avoids chop — which the existing gate failed to do in 2025. Recency/survivorship bias trap avoided.
+
+## Safe trend entry? chop-filter test (`run_trend_filtered.py`) — can't avoid chop, but ADX helps long-run
+- Tested principled chop filters on directional trend (Donchian+Supertrend+BTC-dir): base OOS -0.005R;
+  **ADX≥30 → OOS +0.081R (positive!), IS +0.167R** (trend has long-run positive expectancy, strength-
+  filter helps). ER≥0.3 hurt; strict ER0.4+ADX35 worst (OOS -0.070R, over-filter). **BUT 2025 stays
+  NEGATIVE in EVERY variant (-14 to -50R)** — no filter avoids the chop-year bleed. Whipsaw is intrinsic
+  to trend-following; "safe entry that avoids chop losses" is NOT achievable.
+- **Honest synthesis:** trend-following = long-run positive expectancy (IS +0.17R, OOS +0.08R w/ ADX)
+  but LOSES in chop years (2025) by nature — can't be filtered away. The way to USE it: a SMALL
+  ADX-filtered directional sleeve ADDED to the diversified book (accept chop-year losses for trend-year
+  gains; size small so the bleed is tolerable; diversification with the neutral combo smooths it).
+  NOT a "safe always-win" trend bot. Managed-futures funds live with the same chop-year drawdowns.
