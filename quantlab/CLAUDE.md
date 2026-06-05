@@ -382,6 +382,30 @@ expectancy OUT-OF-SAMPLE**. Not raw signal count, not in-sample return.
   prop firms ban full automation. HyroTrader is API-to-Bybit (algo-friendly by design); confirm
   Breakout. Make-or-break. Ask before any live API/order code.
 
+## CHALLENGE-FARMING backtest (`scripts/run_farm_backtest.py`) — LOSES MONEY, honest
+- User idea: farm the challenge — pass, get funded, withdraw $200, rebuy a new fund, repeat.
+  Backtested SEQUENTIALLY on the REAL last-8-month combo returns (HyroTrader 2-step rules:
+  P1+10%/P2+5%, daily −5%, total −10% TRAILING EOD, min 10+5 days, 80% split, withdraw $200).
+- **Result: NET NEGATIVE at EVERY vol — even raw (no haircut, the favorable 2025-26 as-is):**
+  10% vol −$249 (0 passes); 15% −$498 (0); 20% −$298 haircut / −$98 raw (1 pass then funded
+  BLEW UP on trailing DD); 25% −$547. Withdrawals rarely cover the $249 challenge costs.
+- **Why (structural tension):** (1) at SAFE low vol the +10% target is too slow to hit (10%
+  return needs ~1 Sharpe-year); (2) at HIGH vol you reach target but the funded account blows
+  up on the 10% TRAILING DD before sustained $200 withdrawals; (3) min-days + $249 cost/attempt
+  stack up. The earlier Monte-Carlo "P(funded) 35-48%" answered "pass within a YEAR" — it did
+  NOT model rapid-farming + trailing-DD survival + repeated withdrawals in 8 months.
+- **VERDICT: challenge-farming is NOT a money machine on real recent data — it loses money.**
+  (Caveat: window was ~130 stock-calendar days not ~240 crypto-days, so somewhat harsher than
+  reality; but even doubling the rate it's marginal, not the rosy "$200 repeatedly" hoped for.)
+  Honest path stays: paper-validate on testnet FIRST; treat funded as a slow earner at LOW vol,
+  not a fast-farm. Don't buy multiple challenges expecting to farm them.
+- **Funding-fee question (friend Emir):** partially right — funding can be high & is a periodic
+  long↔short transfer. Two corrections: the EXCHANGE does NOT keep funding (it's peer-to-peer;
+  the exchange takes separate TRADING commission), and the period is usually 8h not 12h. Key:
+  for OUR system funding is largely INCOME (the carry sleeve is built to COLLECT it — long
+  low-funding / short high-funding) and is already in the backtest. The real cost to watch is
+  TRADING COMMISSION (taker ~0.055% + spread) at high turnover, not funding.
+
 ## Raising the correct-decision rate — POOLED meta-label (DONE, `scripts/run_metalabel.py`)
 - Goal: increase the signal's hit rate / cull bad trades. (Reminder: for trend systems a
   low win rate is normal — the real target is EXPECTANCY; naive win-rate chasing via tight
