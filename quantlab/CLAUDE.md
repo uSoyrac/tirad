@@ -787,3 +787,21 @@ literature estimates survivorship inflates crypto backtests ~15–22%/yr.
   high vol that opens crash/DD risk). NOT a challenge-passer; it's a slow-income/diversification signal.
 - Bottom line: Bot1 crypto ~1.8 Sharpe/42-52% pass = the funded-account engine; Bot2 FX carry
   ~0.35-0.9 Sharpe/16-29% pass = modest diversifier, hold for income/manual not for passing challenges.
+
+## ★ OTHER MARKETS map — EQUITIES is the standout (proven edge, best pass-rate)
+- **EQUITIES (US single-stock momentum, `run_equity_prop_stats.py`):** OUR ALREADY-PROVEN 3rd sleeve.
+  Full Sharpe 1.57, IS 1.52, OOS 1.66, +30%/yr, 4/4 years positive, 64% months. **Prop pass 73-79%**
+  (single-phase +8%/daily-5%/total-10% static) — HIGHER than crypto (42-52%) because single-phase +
+  high CAGR + static DD. Orthogonal to crypto. Firm: Trade The Pool (single-stock prop, automation
+  allowed ≤2req/min + approval, single-phase, 80%) or manual /sinyal. CAVEAT: 4/4 years is only
+  2023-26 (AI-megacap bull + yfinance survivorship) → magnitude inflated; realistic forward ~0.8-1.2
+  Sharpe. Turkey eligibility on Trade The Pool to verify.
+- **FUTURES (Apex/TopStep/MyFundedFutures):** biggest/cheapest/most-accessible prop category, likely
+  Turkey-OK. BUT funded accounts mostly allow only SEMI-auto (TradingView webhook / alerts), NOT full
+  bots → fits our MANUAL /sinyal approach. Edge UNTESTED by us (managed-futures TSMOM was weak recently;
+  needs a futures-native test on ES/NQ/CL/GC/ZB).
+- **Market-by-edge ranking:** crypto (strong, ~1.8) ≈ equities (strong, 1.66 but survivorship-inflated)
+  >> forex carry (modest, 0.9) > futures (untested) >> single index/metal (weak/regime-luck).
+- **Best UNTAPPED move: EQUITIES** — we already have the validated edge + best pass-rate; only need a
+  stock prop firm (Trade The Pool) that accepts Turkey + allows our (semi-)automation. Futures = big
+  but needs a fresh edge hunt + semi-auto only.
