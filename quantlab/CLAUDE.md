@@ -680,3 +680,16 @@ Phase 0 seeds the cache from `../uyg/src/mktdata/BTC_USDT_4h.csv` (repo's existi
 BTC, 2021→2026). Re-fetch via `data/fetch.py` before trusting absolute price levels.
 Funding-strategy results are survivorship-capped (universe = today's survivors); the
 literature estimates survivorship inflates crypto backtests ~15–22%/yr.
+
+## PROP REGIME-TIMING (`scripts/run_propfirm_timing.py`) — the one real pass-lever beyond vol/structure
+- Real-calendar test: simulate the 2-step challenge from EVERY start day, correlate pass/fail with
+  the regime at start. Unconditional pass 42%. **Starting in a LOW recent-vol regime → 51% vs 40%
+  in high-vol** (both mom20 & vol20 agree: calm market → smoother climb to target, fewer DD breaches).
+  So regime-timing adds ~+9-11 points — a REAL, honest lever (timing the entry, not curve-fitting alpha).
+- **Consolidated PASS-optimization playbook (honest, highest-EV first):**
+  1. FIRM/STRUCTURE: Breakout static-DD 1-step (~48%) > HyroTrader trailing 2-step (~35%). Biggest lever.
+  2. VOL LEVEL: ~15% constant (10%→35%, 15%→48%). Higher = faster to target until blowup rises.
+  3. REGIME-TIMING: start the challenge when recent market vol is LOW (+~10 points). Use the screener.
+  4. Smart de-risk (buffer/lock/governor) HURTS pass — do NOT use in pass mode.
+  Stacking (Breakout 1-step + ~15% vol + low-vol start) could push pass toward ~55-60%.
+- ⚠️ single-period (2023-26), survivorship, terciles noisy — direction credible, magnitude tentative.
