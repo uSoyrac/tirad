@@ -314,6 +314,25 @@ expectancy OUT-OF-SAMPLE**. Not raw signal count, not in-sample return.
   crypto+US (our edge does NOT transfer to a forex-only firm — no validated forex edge), and
   (c) a −3% intraday self-halt is added (EOD data understates the −5% daily-breach risk).
 
+## FundingPips reality check (`scripts/run_fundingpips.py`) — edge does NOT transfer
+- FundingPips = forex/CFD prop firm (~48 instruments: FX, indices, metals, energies, a few
+  crypto CFDs @1:2 lev, $45/lot, NO funding mechanism). Daily loss 5% of max(day-start balance,
+  current EQUITY) → intraday/equity-based. Max DD static 10%. P1 +8%/+10%, P2 +5%, min 3 days,
+  no time limit. **Our DSR/PBO-validated 3-sleeve book does NOT transfer:** funding-carry sleeve
+  cannot exist on CFDs, US single-stock cross-section unavailable (only indices), crypto degrades
+  to a few 1:2 CFDs with wide costs (and our slippage stress already killed momentum at high cost).
+- **Tested the transferable price strategies (TSMOM + cross-sectional momentum, lookbacks
+  30-120) on 18 FundingPips-native instruments (G10 FX + 6 indices + gold/silver), honest costs,
+  2015-2026.** Best OOS (2025-26) = XSEC-90 Sharpe 0.79 — BUT **IS Sharpe is NEGATIVE for every
+  candidate (−0.27..−1.09) and the best book lost money in 9 of 12 years**, positive only in
+  2025-26. That 0.79 is REGIME-LUCK, not edge (negative IS + 9 negative years confirm it).
+  Consistent with the earlier LEVER #1 macro-TSMOM negative result.
+- **VERDICT (honest, capital-preserving): we do NOT have a validated edge on FundingPips
+  instruments. Do not buy the challenge expecting our system to pass — that is gambling, not
+  science.** Untested honest hypotheses that COULD fit (no promises): FX CARRY (rate-differential,
+  harvested via swap — the true analog of our crypto funding edge; needs rate data), FX
+  mean-reversion (majors range more than crypto trends), or intraday (different data/game).
+
 ## Raising the correct-decision rate — POOLED meta-label (DONE, `scripts/run_metalabel.py`)
 - Goal: increase the signal's hit rate / cull bad trades. (Reminder: for trend systems a
   low win rate is normal — the real target is EXPECTANCY; naive win-rate chasing via tight
