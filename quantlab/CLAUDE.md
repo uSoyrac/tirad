@@ -765,3 +765,15 @@ literature estimates survivorship inflates crypto backtests ~15–22%/yr.
   not deployable, OOS is luck). A real forex bot would need intraday data/infra or a genuinely
   different signal (we don't have it). Stick with: crypto edge on crypto-native firms (HyroTrader,
   auto) + the manual-signal mode (any crypto firm). Forex/CFD venues (FundingPips) stay OUT.
+
+## ★ BOT 2 = FX CARRY (`run_fx_carry_opt.py`) — the ONE real forex factor (modest)
+- Optimized FX carry on 7 G10 pairs: **raw carry IS 0.28 / OOS 0.92, 9/12 years positive** — best
+  variant. carry-to-vol ~same (IS 0.14). **Trend-filter HURT badly (IS −0.48, 2/12)** — clever idea
+  failed on test again; raw carry wins. Low-turnover → cost-robust. This is a GENUINE FX factor
+  (canonical carry, ~0.5 Sharpe academic norm; ours in-band), 9/12 years = decent single-factor robustness.
+- **Honest ceiling: MODEST.** ~0.3-0.9 Sharpe → too slow/weak to reliably pass a prop +10% target
+  (NOT a challenge-passer alone); good as a slow-income / diversification SIGNAL on forex/CFD venues
+  (FundingPips), manual. Carry carries crash-tail risk (risk-off). So Bot 2 = FX-carry SIGNAL, not auto-passer.
+- **Two-bot final:** Bot 1 = crypto combo (strong, DSR/PBO-real) on crypto firms (auto/manual);
+  Bot 2 = FX carry (modest-real) on forex/CFD firms (manual signal). FundingPips now has a real—if
+  modest—signal to trade manually. Don't expect it to pass challenges fast; it's slow carry income.
