@@ -741,3 +741,14 @@ literature estimates survivorship inflates crypto backtests ~15–22%/yr.
   API, testnet). SECONDARY = Velotrade IF (Turkey allowed AND coins ≥~30) — best algo rules but newer/less
   trust + likely lower breadth + simulated DXtrade. Breakout ELIMINATED (Turkey-restricted + no API).
 - Both firms use EOD-trailing DD (intraday swings don't breach) — favorable for our daily-rebalance bot.
+
+## Velotrade variants tested (`run_firm_compare.py`) — 2-step TIES HyroTrader
+- Ran our edge vs Velotrade's structures (vol 15%, regime-timed, real calendar):
+  Velotrade 2-step (trail 10%/daily5%) 42%/52% — IDENTICAL to HyroTrader 2-step (same rules);
+  Velotrade 1-step Classic (trail 7%/daily4%) 32%/21%; Velotrade 1-step Pro (STATIC 3%/daily3%)
+  32%/23% (3% DD too tight at 15% vol → needs ~6-7% vol; cheapest at $35 though).
+- **Velotrade 2-step pass-rate ties HyroTrader (52%)** — so on passing they're equal. Decision
+  hinges on: breadth (HyroTrader 700 coins >> Velotrade's likely 20-50 DXtrade list — our
+  cross-sectional momentum NEEDS breadth, sim uses same 20-coin returns so understates this gap),
+  maturity (HyroTrader established vs Velotrade new), API (Velotrade better). Net: HyroTrader stays
+  primary on breadth+trust; Velotrade co-primary IF Turkey-allowed + coin-count ≥~30.

@@ -28,7 +28,10 @@ MAXD = 120
 FIRMS = {
     "HyroTrader 2-step (trailing)": {"phases": [(0.10, 10), (0.05, 5)], "daily": -0.05, "total": -0.10, "trail": True},
     "HyroTrader 1-step (trailing)": {"phases": [(0.10, 10)], "daily": -0.04, "total": -0.06, "trail": True},
-    "Breakout 1-step (STATİK)": {"phases": [(0.10, 5)], "daily": -0.04, "total": -0.06, "trail": False},
+    "Breakout 1-step (STATİK %6)": {"phases": [(0.10, 5)], "daily": -0.04, "total": -0.06, "trail": False},
+    "Velotrade 2-step (trailing %10)": {"phases": [(0.10, 5), (0.05, 3)], "daily": -0.05, "total": -0.10, "trail": True},
+    "Velotrade 1-step Classic (trail %7)": {"phases": [(0.10, 5)], "daily": -0.04, "total": -0.07, "trail": True},
+    "Velotrade 1-step Pro (STATİK %3)": {"phases": [(0.10, 5)], "daily": -0.03, "total": -0.03, "trail": False},
 }
 
 
