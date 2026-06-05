@@ -805,3 +805,17 @@ literature estimates survivorship inflates crypto backtests ~15–22%/yr.
 - **Best UNTAPPED move: EQUITIES** — we already have the validated edge + best pass-rate; only need a
   stock prop firm (Trade The Pool) that accepts Turkey + allows our (semi-)automation. Futures = big
   but needs a fresh edge hunt + semi-auto only.
+
+## EQUITY pass re-test (Trade The Pool REAL rules) + FUTURES test — Q1/Q2 answers
+- **Q1 EQUITIES (Trade The Pool):** Turkey NOT restricted ✅. Real Flex rules 6% target / 2% daily /
+  4% max-DD (STATIC, tight) / 70% split / $53-120. Re-tested pass with REAL rules (prior 73-79% used
+  loose 10% DD = misleading): **~63-66% pass at 6-8% vol** (4% vol → 43%). Still good (> crypto 42-52%).
+  Execution: raw bots BANNED unless approved → **Signal Stack (semi-auto, 2mo free) or MANUAL /hisse**.
+  DECIDED: signal-based, firm = Trade The Pool. Caveat: 70% split (lower), survivorship-inflated edge.
+- **Q2 FUTURES (`run_futures.py`):** 13 contracts (ES/NQ/YM/GC/SI/HG/CL/NG/ZB/ZN/6E/6J/6B). TSMOM +
+  cross-sectional momentum. **NO edge: best TSMOM-60 IS 0.20/OOS 0.17 (~zero), all weak/negative,
+  XSEC catastrophic (-34..-48% DD), pass only 23-29%.** Consistent with macro-ETF TSMOM negative.
+  VERDICT: do NOT pursue futures — no validated edge (managed-futures trend weak this regime). Futures
+  props are cheap/Turkey-OK but edge-less = gambling. Focus crypto + equities.
+- **FINAL market verdict:** deployable edges = CRYPTO (strong) + EQUITIES (strong, Trade The Pool,
+  Turkey-OK, ~65% pass) + FX-carry (modest). Futures = NO. Single index/metal = NO. Forex-ex-carry = NO.

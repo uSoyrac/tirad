@@ -24,8 +24,8 @@ def sharpe(r):
     return float(r.mean() / r.std() * np.sqrt(PPY)) if r.std() > 0 else float("nan")
 
 
-def pass_prob(r, vol, target1=0.08, daily=-0.05, total=-0.10, nsim=15000):
-    """tek-faz stock-prop proxy: +8% hedef, günlük -5%, toplam -10% (statik)."""
+def pass_prob(r, vol, target1=0.06, daily=-0.02, total=-0.04, nsim=15000):
+    """Trade The Pool Flex GERÇEK kuralları: +6% hedef, günlük -2%, toplam -4% (statik, SIKI)."""
     z = ((r - r.mean()) / r.std()).to_numpy()
     sd = vol / np.sqrt(PPY)
     mu = 0.6 * (r.mean() / r.std()) * sd
@@ -68,9 +68,9 @@ def main():
              "## Tutarlılık", "",
              f"- Kazanan yıl: {int((yearly>0).sum())}/{len(yearly)} (%{(yearly>0).mean()*100:.0f})",
              f"- Kazanan ay: %{(monthly>0).mean()*100:.0f}", "",
-             "## Prop geçiş tahmini (tek-faz +8%, günlük -5%, toplam -10% statik)", "",
+             "## Prop geçiş — Trade The Pool Flex GERÇEK kuralları (+6%, günlük -2%, toplam -4% SIKI)", "",
              "| vol-hedef | P(geç) |", "|---|---|"]
-    for v in (0.10, 0.15, 0.20):
+    for v in (0.04, 0.06, 0.08, 0.10):
         lines.append(f"| %{v*100:.0f} | %{pass_prob(oos if len(oos) > 200 else us, v)*100:.0f} |")
     lines += ["", "## Yorum", "",
               f"- **OOS Sharpe {sharpe(oos):.2f}** — FX carry'den (0.9) güçlü, crypto'ya (1.8) yakın-orta. "
