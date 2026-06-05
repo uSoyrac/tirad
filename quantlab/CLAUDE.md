@@ -777,3 +777,13 @@ literature estimates survivorship inflates crypto backtests ~15–22%/yr.
 - **Two-bot final:** Bot 1 = crypto combo (strong, DSR/PBO-real) on crypto firms (auto/manual);
   Bot 2 = FX carry (modest-real) on forex/CFD firms (manual signal). FundingPips now has a real—if
   modest—signal to trade manually. Don't expect it to pass challenges fast; it's slow carry income.
+
+## FX CARRY (Bot 2) full stats (`run_fx_carry_stats.py`)
+- Risk-return 2015-26: full Sharpe 0.35 / +3%yr / -16% MaxDD; IS 0.28 /+2%; OOS 0.92 /+7% /-7%.
+  Consistency: 9/12 years positive (75%), 60% positive months, 53% positive days; best/worst year
+  +7%/-5%, best/worst month +6%/-6% (carry-crash tail).
+- Prop pass-prob (HyroTrader 2-step, bootstrap haircut 0.6): 10% vol 16%, 15% 28%, 20% 29% —
+  FAR below crypto (42-52%) because carry is slow (~3-7%/yr → can't hit +10% target fast without
+  high vol that opens crash/DD risk). NOT a challenge-passer; it's a slow-income/diversification signal.
+- Bottom line: Bot1 crypto ~1.8 Sharpe/42-52% pass = the funded-account engine; Bot2 FX carry
+  ~0.35-0.9 Sharpe/16-29% pass = modest diversifier, hold for income/manual not for passing challenges.
