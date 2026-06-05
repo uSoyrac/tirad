@@ -297,6 +297,23 @@ expectancy OUT-OF-SAMPLE**. Not raw signal count, not in-sample return.
   ML (failed 4×). **Next honest step: paper-trade this exact book; then point-in-time universe
   to clean the magnitude. Ask before any live execution / order code.**
 
+## PROP-FIRM challenge — 2-bot system on the real edge (`scripts/run_propfirm.py`)
+- Card rules: P1 +8%, P2 +5%, max total −10%, max DAILY −5% (instant fail), 80% biweekly,
+  $5K, $36. Monte-Carlo (block-bootstrap, 30k paths) the 3-sleeve book's daily returns,
+  haircut ×0.6 (sim Sharpe ~1.2), across annual vol targets. P(pass BOTH phases): 5% vol→31%,
+  7%→51%, 10%→66%, 12%→70%, 15%→69%. Funded month blowup ~0% up to 12% vol.
+- **Bot pool verdict (Explore agent):** Gemini's prop bots 06-10 target the right rules
+  (explicit −5%/−10% limits) but their backtests are untrustworthy (look-ahead, no
+  liquidation, XGBoost AUC~0.52). The only DSR/PBO-real edge is our 3-sleeve book.
+- **2-bot answer = ONE real edge at TWO vol settings:** Bot A passer ~10% vol (P(both)~66%,
+  median ~92 days, daily/total fails ~0/6%, P(day≤−3%)=0% so safe margin to the −5% cliff —
+  chose 10% over the naive 12% optimum because 12-15% has 34% chance of a −3% EOD day whose
+  INTRADAY could breach −5%). Bot B funded ~7% vol (~0% monthly blowup, ~$48/mo on $5K).
+- **EV decision:** expected cost to get funded ≈ $36/0.66 ≈ $55; funded ~$48-69/mo → +EV,
+  ~1-month payback IF (a) the edge holds FORWARD (paper-validate first), (b) the firm allows
+  crypto+US (our edge does NOT transfer to a forex-only firm — no validated forex edge), and
+  (c) a −3% intraday self-halt is added (EOD data understates the −5% daily-breach risk).
+
 ## Raising the correct-decision rate — POOLED meta-label (DONE, `scripts/run_metalabel.py`)
 - Goal: increase the signal's hit rate / cull bad trades. (Reminder: for trend systems a
   low win rate is normal — the real target is EXPECTANCY; naive win-rate chasing via tight
