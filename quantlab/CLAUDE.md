@@ -819,3 +819,22 @@ literature estimates survivorship inflates crypto backtests ~15–22%/yr.
   props are cheap/Turkey-OK but edge-less = gambling. Focus crypto + equities.
 - **FINAL market verdict:** deployable edges = CRYPTO (strong) + EQUITIES (strong, Trade The Pool,
   Turkey-OK, ~65% pass) + FX-carry (modest). Futures = NO. Single index/metal = NO. Forex-ex-carry = NO.
+
+## 'tirad' live bot reality + directional-trend test (`run_trend_directional.py`)
+- The dashboard "tirad" card (Binance Futures TESTNET, +$419/2d) = live_bot.py: multi-coin 4H
+  Donchian(40)+Supertrend(10,3) AGREEMENT + BTC-200EMA align + regime-gate(≥2) + ML meta-label +
+  fractional-Kelly. CORRECTION to earlier read: current 8 positions are ALL SHORT at ×1 leverage
+  (NOT 20×), 0 closed trades → the +$419 is 100% UNREALIZED on a 2-day market down-move the shorts
+  caught. No realized track record.
+- **Why our combo didn't catch it: directional (tirad) vs cross-sectional/neutral (combo).** tirad
+  takes whole-market directional bets (short everything in a downtrend); combo is Top-3 long + funding
+  neutral → doesn't profit from a broad selloff by design.
+- **Backtested tirad's directional logic honestly (2730 trades):** IS (≤2024) +0.131R/35% win, but
+  **OOS 2025-26 −0.023R (NEGATIVE), 30% win, R-Sharpe −0.41.** By-year: 2021 +0.26R, 2022 +0.14R,
+  2023 +0.13R, 2024 +0.04R, **2025 −0.063R (−36R, whipsaw)**, 2026 +0.07R. Directional crypto trend
+  is REGIME-DEPENDENT: profits in trending years, bleeds in chop (2025). The +$419 is the lucky 2-day
+  tail of an OOS-negative strategy. The regime-gate did NOT prevent the 2025 bleed.
+- **VERDICT: do NOT optimize our disciplined bots toward the tirad wave — it's chasing the lucky tail
+  of a strategy that's OOS-negative/whipsaw-prone.** Combo's neutrality is WHY it avoided the 2025 -36R
+  bleed (feature, not bug). A regime-gated directional sleeve only helps IF regime-detection reliably
+  avoids chop — which the existing gate failed to do in 2025. Recency/survivorship bias trap avoided.
