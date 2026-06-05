@@ -24,17 +24,20 @@ def hisse_panel():
     else:
         rows = "".join(
             f"<tr><td style='color:{'#3fb950' if p.get('action')=='AÇ' else '#8b949e'};font-weight:700'>{esc(p.get('action'))}</td>"
-            f"<td style='color:#3fb950;font-weight:600'>LONG</td><td><b>{esc(p.get('ticker'))}</b></td>"
+            f"<td><b>{esc(p.get('ticker'))}</b></td><td><b>{esc(p.get('shares'))} adet</b> (${esc(p.get('usd'))})</td>"
             f"<td>${esc(p.get('entry'))}</td><td>${esc(p.get('stop'))} <span class=muted>(%{esc(p.get('stop_pct'))})</span></td>"
-            f"<td>%{esc(p.get('weight_pct'))}</td><td>{p.get('mom90_pct'):+.0f}%</td></tr>"
+            f"<td>${esc(p.get('risk_usd'))}</td><td>{p.get('mom90_pct'):+.0f}%</td></tr>"
             for p in (r.get("positions") or []))
         closes = "".join(
             f"<tr><td style='color:#f85149;font-weight:700'>KAPAT</td><td colspan=6 class=muted><b>{esc(c.get('ticker'))}</b> — sinyalden çıktı, kapat</td></tr>"
             for c in (r.get("closes") or []))
+        ok = r.get("risk_ok")
+        rc = "#3fb950" if ok else "#f85149"
         body = f"""
-<div class=badge>BOT 3 — Hisse Momentum · long-only Top-{esc(r.get('topk'))} · evren {esc(r.get('universe'))}</div>
+<div class=badge>BOT 3 — Hisse Momentum · long-only Top-{esc(r.get('topk'))} · ${esc(r.get('account'))} hesap</div>
+<div class=badge style="border-color:{rc}">Deploy ${esc(r.get('deployed_usd'))} · Toplam-risk <span style="color:{rc}">${esc(r.get('total_risk_usd'))}</span> / DD-bütçe ${esc(r.get('dd_budget_usd'))} (%4) {'✓' if ok else '⚠️'}</div>
 <p class=note>{esc(r.get('note'))}</p>
-<table><tr><th>Aksiyon</th><th>Yön</th><th>Hisse</th><th>Giriş≈</th><th>Stop-loss (zorunlu)</th><th>Ağırlık</th><th>90g mom</th></tr>
+<table><tr><th>Aksiyon</th><th>Hisse</th><th>AL (adet/$)</th><th>Giriş≈</th><th>Stop-loss (zorunlu)</th><th>Risk $</th><th>90g mom</th></tr>
 {rows}{closes}</table>
 <p class=muted style="margin-top:12px">Son güncelleme: {esc(r.get('ts'))} · MANUEL — Trade The Pool/hisse prop platformunda elle gir.
 Kanıtlı edge (OOS Sharpe 1.66) ama 2023-26 boğası + survivorship şişkin → ileriye haircut'lı bekle.</p>
