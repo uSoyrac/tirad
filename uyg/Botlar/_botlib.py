@@ -25,19 +25,34 @@ def load_universe():
     """Return (cfg, frames, higher, targets, momentum, fundings) for the universe."""
     from quantlab.config import load_config
     from quantlab.data import cache, funding as fundmod
+    import os
+
     from quantlab import orchestrator
 
     cfg = load_config(str(CONFIG))
+    # LIVE mode: top the crypto cache up to NOW via ccxt so 'as-of' advances (fixes the
+    # stale dashboard). Set env TIRAD_LIVE=1 on the live runner. Default = cached (offline).
+    live = os.environ.get("TIRAD_LIVE", "").lower() in ("1", "true", "yes")
+    if live:
+        from quantlab.data import fetch as _fetch
     frames, higher, targets, momentum, fundings = {}, {}, {}, {}, {}
     for sym in UNIVERSE:
         csv = MKTDATA / f"{sym}_USDT_4h.csv"
         fp = FUND / f"{sym}_funding.csv"
         if not (csv.exists() and fp.exists()):
             continue
-        df = cache.load_ohlcv(f"{sym}/USDT", "4h", cache_dir=CACHE,
-                              start=cfg.data.start, end=cfg.data.end, seed_csv=csv)
-        hd = cache.load_ohlcv(f"{sym}/USDT", "1d", cache_dir=CACHE,
-                              start=cfg.data.start, end=cfg.data.end, seed_csv=csv)
+        if live:
+            try:
+                df = _fetch.top_up(f"{sym}/USDT", "4h", cache_dir=CACHE, seed_csv=csv)
+                hd = cache.resample(df, "1d")            # higher TF from fresh bars
+            except Exception:  # noqa: BLE001 — network hiccup: fall back to cache
+                df = cache.load_ohlcv(f"{sym}/USDT", "4h", cache_dir=CACHE, seed_csv=csv)
+                hd = cache.load_ohlcv(f"{sym}/USDT", "1d", cache_dir=CACHE, seed_csv=csv)
+        else:
+            df = cache.load_ohlcv(f"{sym}/USDT", "4h", cache_dir=CACHE,
+                                  start=cfg.data.start, end=cfg.data.end, seed_csv=csv)
+            hd = cache.load_ohlcv(f"{sym}/USDT", "1d", cache_dir=CACHE,
+                                  start=cfg.data.start, end=cfg.data.end, seed_csv=csv)
         frames[sym], higher[sym] = df, hd
         targets[sym] = orchestrator.build_target(df, cfg, hd)
         momentum[sym] = df["close"].pct_change(60)
