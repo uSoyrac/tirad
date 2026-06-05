@@ -1,17 +1,18 @@
-"""CHALLENGE-FARMING geriye-dönük backtest — son 8 ayda GERÇEK getirilerle ne olurdu?
+"""CHALLENGE-FARMING geriye-dönük backtest — HyroTrader $5K, $59 İADE-EDİLEBİLİR ücret.
 
-Kullanıcı sorusu: son 8 ayda botumuzla HyroTrader 2-step challenge'ını tek tek koşsak,
-kaç kez geçer, her funded olunca $200 çekip yeni fon alsak — toplam ne kâr ederdik?
+Gerçek ekran: Two-Step 5,000 USDT = $59, "fully refundable challenge fee" (ilk ödemede ücret
+GERİ İADE), up to 90% split, avg payout $206. One-Step: 5 gün + %10 hedef, doğrulama yok.
 
-Bu MONTE-CARLO değil — GERÇEK son-8-ay combo getirileri üzerinde sıralı (deterministik) bir
-challenge-farming durum-makinesi. Tek bir gerçekleşme (yol), o yüzden birkaç başlangıç-ofseti
-ile aralık da verilir. HyroTrader 2-step kuralları: P1 +10% / P2 +5%, günlük −5%, toplam
-−10% TRAILING (EOD), min 10+5 gün. Funded'da kâr $200/0.8=$250 brüt olunca çek, döngü.
+İADE mantığı oyunu değiştirir: GEÇİLEN challenge'ın $59'u geri gelir → yalnız BAŞARISIZ
+denemeler net maliyet. Bunu modelleyip son-8-ay GERÇEK getirilerde sıralı simüle eder.
 
-⚠️ Son 8 ay (2025-26) İYİ bir rejimdi (OOS Sharpe yüksek) → bu OPTIMIST bir tahmin.
-   Survivorship + komisyon haircut'ı uygula. Gelecek bu kadar cömert olmayabilir.
+Modlar:
+  one_step : tek faz, hedef +10%, DD %6 trailing, günlük %4, min 5 gün
+  two_step : P1 +10% / P2 +5%, DD %10 trailing, günlük %5, min 10+5 gün
 
-Usage: python scripts/run_farm_backtest.py [account_size] [challenge_cost] [vol]
+⚠️ 2025-26 İYİ rejimdi → optimist. Survivorship + komisyon haircut. Tek-yol + ofset aralığı.
+
+Usage: python scripts/run_farm_backtest.py [mode] [vol] [keep] [withdraw]
 """
 
 from __future__ import annotations
@@ -29,13 +30,16 @@ import pandas as pd  # noqa: E402
 CUT = pd.Timestamp("2025-01-01")
 PPY = 365
 SLEEVE3 = Path(__file__).resolve().parents[1] / "reports_out" / "_sleeves3.parquet"
-HAIRCUT = 0.60          # survivorship + komisyon dürüst indirimi
+HAIRCUT = 0.60
 VOL_LOOKBACK = 20
-# HyroTrader 2-step
-P1, P2, DAILY, TOTAL = 0.10, 0.05, -0.05, -0.10
-MIN1, MIN2 = 10, 5
-SPLIT = 0.80
+ACCOUNT = 5000.0
+FEE = 59.0
+SPLIT = 0.80          # default (up to 90%); konservatif
 WITHDRAW = 200.0
+MODES = {
+    "one_step": {"phases": [(0.10, 5)], "daily": -0.04, "total": -0.06},
+    "two_step": {"phases": [(0.10, 10), (0.05, 5)], "daily": -0.05, "total": -0.10},
+}
 
 
 def crypto_combo():
@@ -53,127 +57,115 @@ def vol_target(r, target, lookback=VOL_LOOKBACK, maxlev=3.0):
 
 
 def haircut_returns(r, keep):
-    """Reduce the mean (edge) by (1-keep), preserve vol/shape — honest discount."""
     mu = r.mean()
     return (r - mu) + mu * keep
 
 
-def farm(r, account, cost, withdraw=WITHDRAW, split=SPLIT):
-    """Sequential challenge-farming state machine over the real return path r (np array)."""
+def farm(r, phases, daily, total, account=ACCOUNT, fee=FEE, refundable=True,
+         withdraw=WITHDRAW, split=SPLIT):
     n = len(r)
     state = "buy"
     eq = peak = 1.0
-    phase = 1
-    dphase = 0
-    n_buy = passes = fails = blowups = n_withdraw = 0
-    total_cost = total_wd = 0.0
-    log = []
+    pidx = dphase = 0
+    refunded = False
+    n_buy = passes = fails = blowups = n_wd = 0
+    total_fee = total_wd = total_refund = 0.0
     i = 0
     while i < n:
         if state == "buy":
-            total_cost += cost
+            total_fee += fee
             n_buy += 1
             eq = peak = 1.0
-            phase, dphase = 1, 0
+            pidx = dphase = 0
+            refunded = False
             state = "challenge"
         ret = r[i]
         i += 1
         dphase += 1
         if state == "challenge":
-            if ret <= DAILY:
+            if ret <= daily:
                 fails += 1
                 state = "buy"
                 continue
             eq *= (1 + ret)
             peak = max(peak, eq)
-            if eq <= peak * (1 + TOTAL):
+            if eq <= peak * (1 + total):
                 fails += 1
                 state = "buy"
                 continue
-            tgt, mind = (P1, MIN1) if phase == 1 else (P2, MIN2)
+            tgt, mind = phases[pidx]
             if eq >= 1 + tgt and dphase >= mind:
-                if phase == 1:
-                    phase, dphase, eq, peak = 2, 0, 1.0, 1.0
-                else:
+                pidx += 1
+                if pidx >= len(phases):
                     passes += 1
                     state, eq, peak = "funded", 1.0, 1.0
-                    log.append((i, "FUNDED"))
+                else:
+                    eq, peak, dphase = 1.0, 1.0, 0
         elif state == "funded":
-            if ret <= DAILY:
+            if ret <= daily:
                 blowups += 1
                 state = "buy"
-                log.append((i, "blowup"))
                 continue
             eq *= (1 + ret)
             peak = max(peak, eq)
-            if eq <= peak * (1 + TOTAL):
+            if eq <= peak * (1 + total):
                 blowups += 1
                 state = "buy"
-                log.append((i, "blowup"))
                 continue
             if (eq - 1.0) * account * split >= withdraw:
                 total_wd += withdraw
-                n_withdraw += 1
-                eq = peak = 1.0     # kârı çektik, taban'a dön
-    return dict(n_buy=n_buy, passes=passes, fails=fails, blowups=blowups,
-                n_withdraw=n_withdraw, withdrawn=total_wd, cost=total_cost,
-                net=total_wd - total_cost, funded_log=log)
+                n_wd += 1
+                if refundable and not refunded:   # ücret ilk ödemede iade
+                    total_refund += fee
+                    refunded = True
+                eq = peak = 1.0
+    return dict(n_buy=n_buy, passes=passes, fails=fails, blowups=blowups, n_wd=n_wd,
+                withdrawn=total_wd, refund=total_refund, fee=total_fee,
+                net=total_wd + total_refund - total_fee)
 
 
 def main():
-    account = float(sys.argv[1]) if len(sys.argv) > 1 else 25000.0
-    cost = float(sys.argv[2]) if len(sys.argv) > 2 else 249.0
-    vol = float(sys.argv[3]) if len(sys.argv) > 3 else 0.10
-    keep = float(sys.argv[4]) if len(sys.argv) > 4 else HAIRCUT
+    mode = sys.argv[1] if len(sys.argv) > 1 else "two_step"
+    vol = float(sys.argv[2]) if len(sys.argv) > 2 else 0.20
+    keep = float(sys.argv[3]) if len(sys.argv) > 3 else HAIRCUT
+    withdraw = float(sys.argv[4]) if len(sys.argv) > 4 else WITHDRAW
+    cfg = MODES[mode]
 
-    combo = crypto_combo()
-    sized = vol_target(combo, vol)
-    sized = haircut_returns(sized, keep)
-    # son 8 ay
+    sized = haircut_returns(vol_target(crypto_combo(), vol), keep)
     end = sized.index[-1]
-    start = end - pd.DateOffset(months=8)
-    win = sized[(sized.index >= start) & (sized.index <= end)]
+    win = sized[(sized.index >= end - pd.DateOffset(months=8)) & (sized.index <= end)]
+    arr = win.to_numpy()
 
-    lines = ["# Challenge-farming geriye-dönük backtest (HyroTrader 2-step, gerçek son 8 ay)", "",
-             f"Hesap ${account:,.0f} | challenge ${cost:.0f} | vol-hedef %{vol*100:.0f} | "
-             f"haircut ×{HAIRCUT} | pencere {win.index[0].date()}→{win.index[-1].date()} ({len(win)} gün).",
-             f"Kurallar: P1 +{P1*100:.0f}% / P2 +{P2*100:.0f}%, günlük {DAILY*100:.0f}%, toplam "
-             f"{TOTAL*100:.0f}% trailing, min {MIN1}+{MIN2} gün, %{SPLIT*100:.0f} split, her ${WITHDRAW:.0f}'da çek.", ""]
+    base = farm(arr, cfg["phases"], cfg["daily"], cfg["total"], withdraw=withdraw)
+    offs = [o for o in range(0, 61, 10) if o < len(arr)]
+    runs = [farm(arr[o:], cfg["phases"], cfg["daily"], cfg["total"], withdraw=withdraw) for o in offs]
+    nets = [x["net"] for x in runs]
+    passes = [x["passes"] for x in runs]
+    wds = [x["n_wd"] for x in runs]
 
-    # ana yol (ofset 0) + ofset aralığı
-    base = farm(win.to_numpy(), account, cost)
-    lines += ["## Ana senaryo (gerçek yol, baştan başla)", "",
-              f"- Alınan challenge: **{base['n_buy']}** | Geçilen (funded): **{base['passes']}** | "
-              f"Başarısız challenge: {base['fails']} | Funded patlama: {base['blowups']}",
-              f"- Para çekme: **{base['n_withdraw']} kez × ${WITHDRAW:.0f} = ${base['withdrawn']:,.0f}**",
-              f"- Challenge maliyeti: ${base['cost']:,.0f}",
-              f"- **NET (8 ayda): ${base['net']:,.0f}**", ""]
-
-    # başlangıç-ofsetli aralık (tek-yol gürültüsünü göster)
-    offs = range(0, 61, 10)
-    nets, passes_l, wd_l = [], [], []
-    for o in offs:
-        if o >= len(win):
-            break
-        res = farm(win.to_numpy()[o:], account, cost)
-        nets.append(res["net"])
-        passes_l.append(res["passes"])
-        wd_l.append(res["n_withdraw"])
-    lines += ["## Başlangıç-ofsetli aralık (tek-yol gürültüsü — farklı günde başlasak)", "",
-              f"- Geçiş sayısı: medyan {int(np.median(passes_l))}, aralık [{min(passes_l)}–{max(passes_l)}]",
-              f"- Para çekme: medyan {int(np.median(wd_l))} kez",
-              f"- NET: medyan **${np.median(nets):,.0f}**, aralık [${min(nets):,.0f} – ${max(nets):,.0f}]", "",
-              "## Yorum (dürüst)", "",
-              f"- Son 8 ayda (gerçek getiriler, %{vol*100:.0f} vol, haircut'lı) bu farming döngüsü "
-              f"medyanda ~{int(np.median(passes_l))} kez funded olur, ~${np.median(nets):,.0f} NET bırakır.",
-              "- ⚠️ **2025-26 İYİ rejimdi** (OOS Sharpe yüksek) → bu OPTIMIST. Ayı/yatay rejimde "
-              "geçiş oranı ve net DÜŞER; başarısız challenge maliyeti birikir.",
-              "- ⚠️ Tek-yol: ofset aralığı gürültüyü gösterir; gerçek gelecek dağılım Monte-Carlo "
-              "(run_propfirm_multi) ile ~%35 geçiş olasılığıydı — buradaki yüksek geçiş, pencerenin "
-              "cömertliğinden.",
-              "- ⚠️ Komisyon (taker ~%0.055 + spread) bu modelde haircut içinde kabaca; yüksek "
-              "turnover'da ayrıca yer → gerçek net daha düşük olabilir. Paralel hesaplarla ölçeklenir "
-              "ama her biri ayrı challenge maliyeti + ayrı patlama riski taşır."]
+    lines = [f"# Challenge-farming — HyroTrader {mode}, $5K, $59 İADE-edilebilir (gerçek son 8 ay)", "",
+             f"Mod {mode} | hedef {cfg['phases']} | günlük {cfg['daily']*100:.0f}% | toplam "
+             f"{cfg['total']*100:.0f}% trailing | vol %{vol*100:.0f} | haircut ×{keep} | split %{SPLIT*100:.0f} | "
+             f"çek ${withdraw:.0f} | pencere {win.index[0].date()}→{win.index[-1].date()} ({len(win)} gün).", "",
+             "## Ana senaryo (baştan)", "",
+             f"- Challenge: **{base['n_buy']}** | Funded: **{base['passes']}** | Başarısız: {base['fails']} | "
+             f"Funded patlama: {base['blowups']}",
+             f"- Para çekme: {base['n_wd']}× = ${base['withdrawn']:.0f} | Ücret iadesi: ${base['refund']:.0f} | "
+             f"Ücret ödenen: ${base['fee']:.0f}",
+             f"- **NET (8 ay): ${base['net']:,.0f}**", "",
+             "## Ofset aralığı (tek-yol gürültüsü)", "",
+             f"- Funded: medyan {int(np.median(passes))} [{min(passes)}–{max(passes)}] | "
+             f"çekme medyan {int(np.median(wds))}×",
+             f"- **NET: medyan ${np.median(nets):,.0f}, aralık [${min(nets):,.0f} – ${max(nets):,.0f}]**", "",
+             "## Yorum (dürüst)", "",
+             "- İADE-edilebilir ücret oyunu değiştirir: geçilen challenge'ın $59'u geri gelir → "
+             "yalnız BAŞARISIZ denemeler net maliyet. Yine de net, geçiş+funded-hayatta-kalmaya bağlı.",
+             f"- Medyan NET ${np.median(nets):,.0f}: " + (
+                 "POZİTİF — iade + çekimler başarısız maliyetini aşıyor." if np.median(nets) > 0
+                 else "NEGATİF — funded'da $200 biriktirmeden trailing-DD patlaması + başarısız ücretler."),
+             "- ⚠️ 2025-26 cömert rejim (optimist). One-Step DD %6 trailing daha sıkı ama tek-faz+5gün "
+             "hızlı; two-step %10 DD daha gevşek ama 2 faz. $5K'da $200 çekmek +%5 gerektirir (zor).",
+             "- ⚠️ Komisyon haircut'ta kabaca; gerçek net daha düşük olabilir. Önce TESTNET doğrula."]
     report = "\n".join(lines)
     print(report)
     (Path(__file__).resolve().parents[1] / "reports_out" / "farm_backtest.md").write_text(report)

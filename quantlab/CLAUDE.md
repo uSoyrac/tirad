@@ -399,6 +399,17 @@ expectancy OUT-OF-SAMPLE**. Not raw signal count, not in-sample return.
   reality; but even doubling the rate it's marginal, not the rosy "$200 repeatedly" hoped for.)
   Honest path stays: paper-validate on testnet FIRST; treat funded as a slow earner at LOW vol,
   not a fast-farm. Don't buy multiple challenges expecting to farm them.
+- **UPDATE — real HyroTrader $5K / $59 FULLY-REFUNDABLE fee changes it to ~break-even.** Re-ran
+  with the actual screen params (account $5K, fee $59 refunded on first payout, One-Step
+  10%/DD6%trail/daily4%/min5d vs Two-Step, frequent small $100 withdrawals to bank profit before
+  trailing-DD). Best realistic config = **One-Step, ~25% vol, $100 withdrawals: main-path NET
+  +$223 over 8mo, offset-median +$23** (range −$36..+$223). Two-Step ~break-even (+$41..−$18).
+  The refundable fee turns the deep negatives into roughly break-even-to-modestly-positive — but
+  the MEDIAN is only ~+$23 (essentially a coin-flip with small edge), high variance, at aggressive
+  25% vol, in the FAVORABLE 2025-26 regime, with a 0.6 haircut. **It is NOT reliable income.**
+  Honest answer to "what would realistically happen": roughly break-even to a modest few-hundred
+  $, driven entirely by fee-refundability + frequent profit-taking; do NOT expect compounding
+  wealth. Testnet-validate first; the +$223 is the lucky path, +$23 the median.
 - **Funding-fee question (friend Emir):** partially right — funding can be high & is a periodic
   long↔short transfer. Two corrections: the EXCHANGE does NOT keep funding (it's peer-to-peer;
   the exchange takes separate TRADING commission), and the period is usually 8h not 12h. Key:
