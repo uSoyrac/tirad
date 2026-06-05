@@ -428,6 +428,22 @@ expectancy OUT-OF-SAMPLE**. Not raw signal count, not in-sample return.
   CONFLUENCE filter (take the unwind trade only when it AGREES with the combo trend/funding
   signal), with maker orders to cut fees. Worth wiring as an overlay + testing it doesn't hurt
   the combo (recall the meta-label gate HURT — confluence must be validated, not assumed).
+
+## PROP-PASS sizing optimization (`scripts/run_propfirm_opt.py`) — clever de-risk HURTS, honest
+- Q: can we optimize the bot to PASS better (alpha fixed, just risk-path management)? Tested 4
+  policies on HyroTrader 2-step (trailing DD), alpha held constant (sim Sharpe ~1.0):
+  A constant-vol 43% / B buffer-build-then-derisk 39% / C buffer+lock-near-target 22% /
+  D +daily-governor 23%. **Constant vol WINS; every "smart" de-risk policy HURT pass rate.**
+- **Why (counterintuitive, true):** the +10% target is HIGH vs the modest edge, so you must keep
+  compounding at full risk to reach it before the path/time runs out. De-risking after a buffer
+  starves the growth; locking near target stalls you just below it; the trailing DD floor rises
+  with the peak anyway so buffer-building doesn't reduce breach risk. **The ONLY real pass-lever
+  is the VOL LEVEL** (10%→35%, 15%→48% pass) not path-shaping. ~15% constant is the sweet spot,
+  which `--mode pass` already uses. So the bot is already near-optimal for passing; there is NO
+  trick to push 45%→80% without taking more blowup risk. The edge is the edge.
+- **Funded phase is the OPPOSITE regime:** no target to hit, objective = don't blow up → low
+  constant vol + lock/withdraw IS correct there. Pass = constant-aggressive; Funded = ultra-
+  conservative. Keep the executor's two modes; do NOT add buffer/lock to pass mode (it hurts).
 - **Funding-fee question (friend Emir):** partially right — funding can be high & is a periodic
   long↔short transfer. Two corrections: the EXCHANGE does NOT keep funding (it's peer-to-peer;
   the exchange takes separate TRADING commission), and the period is usually 8h not 12h. Key:
