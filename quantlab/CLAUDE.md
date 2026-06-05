@@ -268,6 +268,35 @@ expectancy OUT-OF-SAMPLE**. Not raw signal count, not in-sample return.
   (NOT live capital), then point-in-time universe + DSR/PBO on this exact book. Ask before
   any live execution.**
 
+## ★ BOOK walk-forward optimization (`scripts/run_bookopt.py`) — honest profit max
+- Walk-forward (12m train / 6m test / step 6m) over trend(ROC×topK) × carry(lb×n) + 3-way
+  inverse-vol weights, train-selected, OOS-applied. OOS Sharpe 3.06 → **4.18** (CAGR 64→53%,
+  DD −8→−6%). Vol-targeted 15% → CAGR 94%/−11% DD; 20% → 139%/−14%; 25% → 187%/−16%.
+- **The picks are HIGHLY CONSISTENT every window: trend (ROC30, Top-1) + carry (14,5),
+  balanced weights** — stable regime-adaptation (fast momentum + tight concentration), NOT
+  param-jumping. That consistency is genuine robustness evidence. But 4.18 is ABOVE the
+  hunt-for-leak line → magnitude inflated by Top-1 single-name variance + short OOS + survivor.
+
+## ★ BOOK honesty gate (`scripts/run_bookpbo.py`) — DSR 1.000, PBO 0.014: EDGE IS REAL
+- DSR + PBO (CSCV, 12870 splits) on the 54-config 3-sleeve book family (27-coin + US).
+  Deployed = WF-opt's (30,1)|(14,5)+US. Observed daily Sharpe 0.227 (ann ~3.60) vs null
+  expected-max 0.064 (ann ~1.02). **DSR = 1.000** (P[true Sharpe>0]≈100% after deflating
+  for 54 trials + skew +0.33 + kurtosis 3.94). **PBO = 0.014** (median logit +2.85 → IS-best
+  generalizes OOS). The edge SURVIVES the honesty gate decisively — NOT a grid artifact.
+- **CRITICAL distinction:** DSR/PBO confirm the edge is POSITIVE and GENERALIZES — they do
+  NOT bless the 3.6-4.2 annual MAGNITUDE (still survivorship- + short-window-inflated).
+  **Realistic deployable expectation ~1.8-2.5 Sharpe after the ~15-22%/yr haircut.**
+
+## ★★ FINAL 'most profitable' answer (honest, capital-preserving)
+- **Most-profitable DEPLOYABLE config = the broad 3-sleeve book (27-coin crypto-trend Top-3
+  /ROC30 + crypto-funding + US-momentum, inverse-vol) sized with a 15-20% vol target.**
+  Use Top-3 not the WF-opt's Top-1 (single-name fragility) — slightly lower Sharpe, far less
+  variance. Honest expectation: Sharpe ~1.8-2.5, CAGR ~40-90% at the chosen vol, DD ~−12/−16%.
+- Profit comes from (1) the structural diversified edge (DSR/PBO-confirmed real), (2) breadth
+  (survivorship-proxy-robust), (3) vol-target SIZING — NOT from leverage-for-its-own-sake or
+  ML (failed 4×). **Next honest step: paper-trade this exact book; then point-in-time universe
+  to clean the magnitude. Ask before any live execution / order code.**
+
 ## Raising the correct-decision rate — POOLED meta-label (DONE, `scripts/run_metalabel.py`)
 - Goal: increase the signal's hit rate / cull bad trades. (Reminder: for trend systems a
   low win rate is normal — the real target is EXPECTANCY; naive win-rate chasing via tight
