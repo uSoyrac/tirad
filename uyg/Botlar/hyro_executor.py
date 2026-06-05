@@ -113,16 +113,28 @@ def risk_gate(equity, st):
     return None
 
 
+# mod ön-ayarları: PASS = challenge'ı geç (yüksek vol); FUNDED = patlamadan kazan (düşük vol + sıkı self-stop)
+MODE_PRESETS = {
+    "pass":   {"vol": 0.15, "intraday_stop": 0.04},   # hedefe hızlı yürü
+    "funded": {"vol": 0.08, "intraday_stop": 0.03},   # hesabı koru, yavaş kazan
+}
+
+
 def main():
     print(__doc__)
     ap = argparse.ArgumentParser()
+    ap.add_argument("--mode", choices=["pass", "funded"], default="pass",
+                    help="pass=challenge geç (yüksek vol) | funded=patlamadan kazan (düşük vol)")
     ap.add_argument("--execute", action="store_true", help="testnet'e GERÇEK emir gönder (yoksa dry-run)")
-    ap.add_argument("--vol", type=float, default=TARGET_VOL)
+    ap.add_argument("--vol", type=float, default=None, help="vol-hedefi elle ez (yoksa moddan)")
     args = ap.parse_args()
     assert TESTNET, "Bu executor TESTNET-kilitli."
+    preset = MODE_PRESETS[args.mode]
+    args.vol = args.vol if args.vol is not None else preset["vol"]
 
     w, atrp, px, asof = compute_targets()
-    print(f"\nHedef (as-of {asof}, vol-hedef %{args.vol*100:.0f}):")
+    print(f"\nMOD={args.mode.upper()} | vol-hedef %{args.vol*100:.0f} | intraday self-stop "
+          f"−%{preset['intraday_stop']*100:.0f} | hedef as-of {asof}:")
 
     ex, equity = None, 1000.0
     if args.execute:
