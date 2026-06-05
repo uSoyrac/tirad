@@ -693,3 +693,17 @@ literature estimates survivorship inflates crypto backtests ~15–22%/yr.
   4. Smart de-risk (buffer/lock/governor) HURTS pass — do NOT use in pass mode.
   Stacking (Breakout 1-step + ~15% vol + low-vol start) could push pass toward ~55-60%.
 - ⚠️ single-period (2023-26), survivorship, terciles noisy — direction credible, magnitude tentative.
+
+## ★ OPTIMAL FUND BOT — firm head-to-head (`scripts/run_firm_compare.py`) — DECISION
+- Real-calendar pass simulation, combo @15% vol, regime-timed: HyroTrader 2-step trailing 42%/52%
+  (uncond/low-vol-start); HyroTrader 1-step trailing 28%/20% (tight 6% trailing = HARDER);
+  **Breakout 1-step STATIC 49%/53% ← BEST.** Static DD beats trailing (no penalty for giving back
+  from a peak → smoother climb to target); 1-step single-hurdle is fast.
+- **OPTIMAL FUND-BOT RECIPE (final):** (1) Breakout 1-step STATIC DD (easiest pass ~53%),
+  (2) combo edge + ~15% constant vol, (3) START in a low-vol regime (screener), (4) ATR-stop ≤3%
+  per trade + −3% intraday self-stop, (5) Top-3 momentum + funding long/short (40%-concentration
+  auto-satisfied). Do NOT add buffer/lock de-risk (proven to hurt passing).
+- **Two-firm strategy:** validate forward on HyroTrader (Bybit testnet + 700 coins), then take the
+  actual challenge on Breakout (static DD, easier pass). Later run both for firm-risk diversification.
+- ⚠️ Testnet execute currently BLOCKED by Bybit retCode 10024 (regulatory/KYC restriction on the
+  account — region/KYC gating, NOT our code/key/balance). User-side Bybit account issue to resolve.
