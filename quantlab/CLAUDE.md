@@ -249,6 +249,25 @@ expectancy OUT-OF-SAMPLE**. Not raw signal count, not in-sample return.
   ways; the disciplined path is vol-targeted sizing (≤¼-Kelly ceiling) on the diversified book,
   then point-in-time-universe + forward paper evidence before any live capital.
 
+## ★ PRODUCTION-CANDIDATE BOOK (`scripts/run_book.py`) — synthesis of everything that works
+- Combines the 3 survivors: BREADTH (broad auto-selected universe, restricted to the 27
+  FULL-HISTORY coins so the all-coin index intersection doesn't truncate the train split) +
+  DIVERSIFICATION (crypto-trend Top-3 + crypto-funding + US-momentum, inverse-vol, train-fit
+  weights {trend 0.26, funding 0.28, us 0.46}) + SIZING (vol-targeting).
+- **Numbers (556 common days 2023-07→2026-05):** sleeve corr 0.02/0.19/−0.10 (real diversif).
+  Unlevered IS Sharpe 1.83 / OOS 3.06. Vol-targeted OOS: 15% → CAGR 55%/−12% DD/Sh 2.59;
+  20% → 78%/−16%; 25% → 103%/−20%. **By-year ALL positive** (2023 +3, 2024 +29, 2025 +39,
+  2026 +23%) — survives the regime gate (no bear-year blowup).
+- **HONESTY FLAGS (loud):** (1) OOS Sharpe 3.06 > IS 1.83 is a WARNING, not a win — it means
+  2025-26 was a kind regime, NOT that the book generalises better OOS; realistic expectation
+  is the IS level (~1.8) or lower. (2) 3.06 is ABOVE the literature "hunt-for-leak" line
+  (>2.5) → short OOS (273d) + survivorship (27 alive coins) + favorable window inflate it.
+  (3) This book has NOT been through its own DSR/PBO (the earlier 0.986/0.031 gate was the
+  20-coin combo family). (4) Apply the ~15-22%/yr survivorship haircut → realistic CAGR
+  ~30-40%, not 55%. **Deliverable = the 15% vol-target book; next step is PAPER-trade
+  (NOT live capital), then point-in-time universe + DSR/PBO on this exact book. Ask before
+  any live execution.**
+
 ## Raising the correct-decision rate — POOLED meta-label (DONE, `scripts/run_metalabel.py`)
 - Goal: increase the signal's hit rate / cull bad trades. (Reminder: for trend systems a
   low win rate is normal — the real target is EXPECTANCY; naive win-rate chasing via tight
