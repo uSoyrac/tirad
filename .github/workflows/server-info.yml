@@ -1,0 +1,49 @@
+name: Server Info (read-only)
+
+# GitHub runner'inin GERCEK internet erisimi var (port 22 dahil) -> sunucuya SSH yapar.
+# Sandbox'tan dogrudan baglanilamadigi icin baglanti buradan yapilir.
+# SADECE okuma komutlari calistirir; sunucuda hicbir sey kurmaz/degistirmez.
+on:
+  push:
+    branches: [claude/sharp-franklin-XRsXb]
+    paths:
+      - '.github/workflows/server-info.yml'
+  workflow_dispatch:
+
+jobs:
+  server-info:
+    runs-on: ubuntu-latest
+    env:
+      SSH_HOST: ${{ secrets.SSH_HOST || '45.143.11.97' }}
+      SSH_USER: ${{ secrets.SSH_USER || 'root' }}
+      SSH_PASSWORD: ${{ secrets.SSH_PASSWORD }}
+    steps:
+      - name: Install sshpass
+        run: sudo apt-get update && sudo apt-get install -y sshpass
+
+      - name: Check secret
+        run: |
+          if [ -z "$SSH_PASSWORD" ]; then
+            echo "::error::SSH_PASSWORD secret tanimli degil. Repo Settings > Secrets and variables > Actions altinda ekleyin."
+            exit 1
+          fi
+
+      - name: Gather server specs (read-only)
+        run: |
+          sshpass -p "$SSH_PASSWORD" ssh \
+            -o StrictHostKeyChecking=no \
+            -o UserKnownHostsFile=/dev/null \
+            -o ConnectTimeout=20 \
+            "$SSH_USER@$SSH_HOST" 'bash -s' <<'REMOTE'
+            echo "===== HOSTNAME ====="; hostname
+            echo "===== OS / KERNEL ====="; uname -a; echo; cat /etc/os-release 2>/dev/null
+            echo "===== UPTIME ====="; uptime
+            echo "===== CPU ====="; lscpu 2>/dev/null || cat /proc/cpuinfo | grep -E 'model name|processor' | head -20
+            echo "===== MEMORY ====="; free -h 2>/dev/null || cat /proc/meminfo | head -5
+            echo "===== DISK ====="; df -h 2>/dev/null
+            echo "===== BLOCK DEVICES ====="; lsblk 2>/dev/null || true
+            echo "===== NETWORK ====="; ip addr 2>/dev/null | grep -E 'inet |link/ether' || true
+            echo "===== VIRTUALIZATION ====="; systemd-detect-virt 2>/dev/null || true
+            echo "===== LOAD / PROC COUNT ====="; nproc; cat /proc/loadavg
+            echo "===== DONE ====="
+          REMOTE
