@@ -726,3 +726,18 @@ literature estimates survivorship inflates crypto backtests ~15–22%/yr.
   daily profit cap, built for bots. Evaluate as the diversification firm after HyroTrader.
 - **Executor default firm flipped breakout1 → hyro2.** Recipe unchanged (combo + ~15% vol + regime-gate +
   maker), now on HyroTrader's trailing DD.
+
+## ★ HyroTrader vs Velotrade — 2-firm strategy comparison
+- **Velotrade (researched):** crypto-only, HK-based, launched early-2026, up-to-$200K, up-to-90% split.
+  Rules: 2-step 10%/5% DD10% daily5%; 1-step Classic 10% DD7% daily4%; 1-step Pro 10% DD3% STATIC daily3%.
+  EOD-trailing DD (never intraday). **Full REST+WebSocket API on EVERY account, no fee/approval (best API).**
+  NO per-trade SL mandate, NO consistency rule, NO daily profit cap. Crypto perps WITH funding (DXtrade,
+  simulated env). Price $35 (1-step Pro $5K) up. Platform DXtrade.
+- **Two open gaps for Velotrade (user must verify):** (a) Turkey in their Restricted-Territories "Schedule 1"?
+  (terms/KYC — could not retrieve list), (b) tradeable coin count (breadth — DXtrade list likely 20-50, far
+  fewer than HyroTrader's 700). Our cross-sectional momentum NEEDS breadth (<20 coins degrades it), so a
+  small coin list weakens our edge on Velotrade despite its superior API.
+- **VERDICT (2-firm):** PRIMARY = HyroTrader (Turkey-confirmed-OK, 700-coin breadth = full edge, real Bybit,
+  API, testnet). SECONDARY = Velotrade IF (Turkey allowed AND coins ≥~30) — best algo rules but newer/less
+  trust + likely lower breadth + simulated DXtrade. Breakout ELIMINATED (Turkey-restricted + no API).
+- Both firms use EOD-trailing DD (intraday swings don't breach) — favorable for our daily-rebalance bot.
