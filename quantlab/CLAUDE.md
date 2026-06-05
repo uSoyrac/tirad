@@ -850,3 +850,15 @@ literature estimates survivorship inflates crypto backtests ~15–22%/yr.
   ADX-filtered directional sleeve ADDED to the diversified book (accept chop-year losses for trend-year
   gains; size small so the bleed is tolerable; diversification with the neutral combo smooths it).
   NOT a "safe always-win" trend bot. Managed-futures funds live with the same chop-year drawdowns.
+
+## ★ FINAL trend verdict — directional-trend sleeve added to combo (`run_trend_combine.py`) — HURTS
+- Built ADX≥30 directional-trend as a daily-return sleeve (standalone OOS Sharpe 0.66, corr +0.28 to
+  crypto_trend = overlaps momentum, not orthogonal). Blended into combo (inverse-vol, train-fit):
+  **combo 1.85 → combo+trend 1.37 (OOS Sharpe DOWN), MaxDD -12%→-15%.** By-year: trend hurt 2023
+  (1.18→0.79), 2024 (0.92→-0.19), 2025 (2.18→1.23); only helped 2026 (0.91→1.70, current trend regime).
+- **DEFINITIVE: directional trend does NOT add risk-adjusted value to our book — it HURTS (1.85→1.37).**
+  Tested 3 ways: alone (OOS-negative), chop-filtered (can't avoid chop bleed), as a sleeve (dilutes
+  + adds variance). The "tirad +42%" wave is the lucky unrealized 2-day tail of a strategy that, properly
+  measured & combined, lowers our Sharpe. Combo's NEUTRALITY (1.85) beats adding trend (1.37) — "not
+  catching the wave" is mathematically correct. Trend only helps IF you bet "now is a trend regime"
+  (market-timing, unreliable). Closing the trend thread: combo + equities + FX-carry stays the system.
