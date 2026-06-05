@@ -875,3 +875,14 @@ literature estimates survivorship inflates crypto backtests ~15–22%/yr.
   (cross-sectional Top-3 = only strongest, funding = only extremes, regime-gate). The issue is never
   architecture — it's that directional trend lacks risk-adjusted edge. **Combo (1.85, selective+neutral)
   beats every trend/MR/regime-switch variant. Trend thread definitively exhausted from all angles.**
+
+## Exit-optimization test (`run_trend_exits.py`) — user's 'take profit & exit' PARTIALLY validated
+- Same trend entry (ADX≥30), varied EXIT: fixed 2.75R (OOS +0.085R, 2025 -18R, 2026 +0.405R);
+  trail-3ATR (-0.104R, worse — gives back in chop); **quick-1.5R (OOS +0.038R, 43% win, 2025 +6R
+  POSITIVE!, 2026 +0.099R)**; BE+trail (-0.115R).
+- **User's exit-timing instinct is RIGHT — partially:** QUICK profit-taking (1.5R) rescues the chop
+  year (2025 -18R → +6R) by locking small bounces before reversal. BUT it's a TRADE-OFF: caps the big
+  trend-year gains (2026 0.405→0.099), so net OOS is LOWER (fixed 0.085 > quick 0.038). Best exit depends
+  on REGIME (quick in chop, run in trend) → back to the lagging regime-detection wall. Trailing is worst
+  here (gives back in chop). No exit rule beats the combo (1.85); the chop-cost can be reduced by quick
+  exits only by sacrificing trend upside. Genuine merit to exit-timing, but not a free lunch / not a fix.
