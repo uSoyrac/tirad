@@ -333,6 +333,34 @@ expectancy OUT-OF-SAMPLE**. Not raw signal count, not in-sample return.
   harvested via swap — the true analog of our crypto funding edge; needs rate data), FX
   mean-reversion (majors range more than crypto trends), or intraday (different data/game).
 
+## FundingPips hypotheses #2/#3 (`scripts/run_fxedge.py`) — FX MEAN-REVERSION is the first hit
+- FX CARRY (rate-diff, G10, approx annual policy rates + daily accrual): OOS Sharpe 0.92,
+  IS 0.28 — positive both but modest. FX MEAN-REVERSION (cross-sectional short-term reversal):
+  **FX-MR-1d OOS Sharpe 1.67, IS +0.60, 8/12 years positive** — the FIRST FundingPips-native
+  candidate with POSITIVE IS (momentum was negative IS = pure regime-luck). Reversal fits FX
+  because majors RANGE (opposite of crypto's trend) — a well-documented short-term FX effect.
+  Longer MR lookbacks (2-5d) decay fast (OOS 0.49→0.10) → the edge is in the 1-day reversal.
+- **Red flags before trusting it:** (1) OOS MaxDD −10% AT the challenge total limit → must
+  vol-target down hard. (2) 1-day reversal = very high turnover → cost-sensitive (3bps used;
+  needs a cost-stress). (3) OOS>IS again = 2025-26 kind. Next: cost-stress + DSR/PBO + prop sim.
+
+## FX-MR-1d validation (`scripts/run_fxmr_validate.py`) — FAILS the cost + prop gate
+- COST-STRESS kills it: OOS Sharpe 3bps 1.67 → 6bps 1.03 → 10bps 0.17 → 15bps −0.90. The
+  1-day reversal is too high-turnover; realistic blended cost (FX majors cheap but the index +
+  metal CFDs and daily rebalancing push to ~6-10bps) erodes the edge.
+- DECISIVE: at a realistic 6bps, the FULL-SAMPLE (2015-26) Sharpe is NEGATIVE (−0.26) — the
+  OOS 1.03 was the kind 2025-26 window only. Prop Monte-Carlo (haircut, vol-targeted to respect
+  −10%/−5%) gives P(pass both) ≤16% even at 10% vol. **No reliable positive edge at real cost.**
+- **★ ACCUMULATED FundingPips VERDICT (honest, final for this arc):** we applied the full
+  rigorous pipeline to FundingPips-native instruments — cross-sectional & time-series momentum,
+  FX carry, FX mean-reversion — and NONE is a robust, cost-survivable, path-constraint-passing
+  edge. Momentum was regime-luck (IS<0), carry modest (OOS 0.92/IS 0.28), MR cost-fragile
+  (full-sample <0 at real cost). **Do NOT buy the FundingPips challenge expecting our system to
+  pass — the validated edge (the crypto 3-sleeve book) cannot be traded on their CFD instruments,
+  and no native FX/index/metal edge cleared the honesty bar.** Honest options: (a) a CRYPTO-native
+  prop firm where our DSR/PBO-real book actually applies; (b) paper-trade the crypto book; (c) a
+  much larger intraday FX research effort (new data/infra, no promise). Capital-preserving call.
+
 ## Raising the correct-decision rate — POOLED meta-label (DONE, `scripts/run_metalabel.py`)
 - Goal: increase the signal's hit rate / cull bad trades. (Reminder: for trend systems a
   low win rate is normal — the real target is EXPECTANCY; naive win-rate chasing via tight
