@@ -31,6 +31,7 @@ from pathlib import Path
 
 
 from _botlib import load_universe
+import compound_engine as ce      # paylaşılan compound/risk çekirdeği
 
 warnings.filterwarnings("ignore")
 
@@ -129,6 +130,9 @@ def main():
     ap.add_argument("--maker", action="store_true", help="post-only limit emir (düşük fee)")
     ap.add_argument("--regime-gate", action="store_true", help="türbülansta riski kıs (düşük-vol'da tam)")
     ap.add_argument("--vol", type=float, default=None)
+    ap.add_argument("--kelly", type=float, default=None,
+                    help="fractional-Kelly COMPOUND (örn 0.25). Canlı equity üzerinden boyutlandırır "
+                         "(büyüdükçe büyür). Yoksa düz vol-hedef.")
     args = ap.parse_args()
     assert TESTNET, "TESTNET-kilitli."
     firm = FIRMS[args.firm]
@@ -158,7 +162,12 @@ def main():
         print(f"\n⛔ {halt} — yeni pozisyon YOK. (kill-switch)")
         return
 
-    gross = min(3.0, vol / 0.40) * regime_scale
+    # boyutlandırma: --kelly varsa compound (fractional-Kelly, canlı equity üzerinden = büyüdükçe büyür)
+    if args.kelly:
+        gross = ce.fractional_kelly_gross(vol, args.kelly, conviction=1.0) * regime_scale
+        print("  " + ce.compound_note(equity, st.get("start_eq") or equity, args.kelly))
+    else:
+        gross = min(3.0, vol / 0.40) * regime_scale
     plan = []
     for s, wt in sorted(w.items(), key=lambda x: -abs(x[1])):
         notional = equity * gross * wt
