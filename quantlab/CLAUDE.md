@@ -862,3 +862,16 @@ literature estimates survivorship inflates crypto backtests ~15–22%/yr.
   measured & combined, lowers our Sharpe. Combo's NEUTRALITY (1.85) beats adding trend (1.37) — "not
   catching the wave" is mathematically correct. Trend only helps IF you bet "now is a trend regime"
   (market-timing, unreliable). Closing the trend thread: combo + equities + FX-carry stays the system.
+
+## Regime-switching test (`run_regime_switch.py`) — FAILED; cash-in-chop > MR-in-chop
+- User idea: trend-bot in trends, chop-strategy in chop, don't always trade. Tested ADX-routed:
+  trend(ADX>25)+MR(ADX≤25). **switch OOS Sharpe -0.73 (WORSE than trend-alone 0.24); MR-in-chop
+  catastrophic -0.88 Sharpe / -81% DD.** 2025: trend -0.27, MR -1.65, switch -1.71 — MR did NOT
+  recover the chop year, made it worse. Two root causes: (1) crypto "chop" is NOT mean-reverting
+  (it's the start of moves → fading = falling knives, -81% DD); (2) ADX regime detection is LAGGING
+  (classify only after the whipsaw). The valid kernel: cash-in-chop (trend-flat 0.24) BEATS MR-in-chop
+  (switch -0.73) — "don't always trade" is right, but the chop response is FLAT, not a chop-strategy.
+- **Architecture point honored:** "multi-agent, enter only on good setups" IS what our system does
+  (cross-sectional Top-3 = only strongest, funding = only extremes, regime-gate). The issue is never
+  architecture — it's that directional trend lacks risk-adjusted edge. **Combo (1.85, selective+neutral)
+  beats every trend/MR/regime-switch variant. Trend thread definitively exhausted from all angles.**
