@@ -752,3 +752,16 @@ literature estimates survivorship inflates crypto backtests ~15–22%/yr.
   cross-sectional momentum NEEDS breadth, sim uses same 20-coin returns so understates this gap),
   maturity (HyroTrader established vs Velotrade new), API (Velotrade better). Net: HyroTrader stays
   primary on breadth+trust; Velotrade co-primary IF Turkey-allowed + coin-count ≥~30.
+
+## SECOND-BOT attempt — FundingPips-native DIVERSIFIED book (`run_fpips_book.py`) — NO edge, don't integrate
+- Tried the one untested approach: apply crypto's DIVERSIFICATION lesson to FX/index/metal — blend
+  FX-carry + FX-MR(1d) + macro-TSMOM inverse-vol (train-fit). Cost 6bps.
+- **Result: IS Sharpe −0.11 (NEGATIVE), OOS 1.08, only 6/12 years positive.** Individual sleeves OOS
+  carry 0.88 / mr 0.87 / tsmom 0.03; the blend's OOS 1.08 is REGIME-LUCK (IS<0; carried by 2020 +
+  2025-26; deeply negative 2017/2023). Diversification gave a small OOS lift but CANNOT manufacture a
+  robust edge from weak/negative components — unlike crypto (momentum + funding were both genuinely
+  positive, orthogonal-STRONG). FX/index has no orthogonal-strong sleeve in our daily toolkit.
+- **VERDICT: do NOT integrate a FundingPips-native second bot — no validated edge** (IS negative =
+  not deployable, OOS is luck). A real forex bot would need intraday data/infra or a genuinely
+  different signal (we don't have it). Stick with: crypto edge on crypto-native firms (HyroTrader,
+  auto) + the manual-signal mode (any crypto firm). Forex/CFD venues (FundingPips) stay OUT.
