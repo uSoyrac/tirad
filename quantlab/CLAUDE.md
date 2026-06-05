@@ -707,3 +707,22 @@ literature estimates survivorship inflates crypto backtests ~15–22%/yr.
   actual challenge on Breakout (static DD, easier pass). Later run both for firm-risk diversification.
 - ⚠️ Testnet execute currently BLOCKED by Bybit retCode 10024 (regulatory/KYC restriction on the
   account — region/KYC gating, NOT our code/key/balance). User-side Bybit account issue to resolve.
+
+## ★ BREAKOUT READINESS REPORT — NOT viable for us; HyroTrader is the firm (eligibility flip)
+- Researched Breakout's real rules: **(1) Turkey is RESTRICTED** (KYC blocks at funded stage; recommended
+  before buying), **(2) NO usable API** — browser "Breakout Terminal" (Kraken-backed, order-book from
+  Binance/Bybit/OKX); our automated bot cannot connect, **(3) fee NON-refundable** (except one KYC-reject
+  refund), daily loss 3% (tighter). → **Breakout is OUT for us on 3 counts (region + automation + cost).**
+- **HyroTrader = the correct firm:** NO country restrictions, NO KYC for eval (KYC only at funded), full
+  Bybit/Binance API for bots, real perps+funding (700 coins), testnet, 80→90% split. CRUCIALLY: on
+  HyroTrader you trade THEIR Bybit entity → the personal Bybit region block (our testnet retCode 10024)
+  does NOT apply to the funded account (their FAQ confirms). So Turkey is fine on HyroTrader.
+- **No loss switching:** Breakout pass ~53% vs HyroTrader-2step low-vol-start ~52% — essentially equal.
+  The eligibility-correct choice is also nearly as strong on pass-rate, and it's what we already built/tested.
+- **10024 reframe:** that block was the USER's personal Bybit testnet (Turkey-restricted), NOT a HyroTrader
+  issue. For independent forward-validation use HyroTrader's own demo, or paper (the `hyro` paper bot), or
+  Binance testnet — not the personal Bybit testnet.
+- **Velotrade = strong #2 (algo-native):** full REST/WebSocket API on every account, no SL-time rule, no
+  daily profit cap, built for bots. Evaluate as the diversification firm after HyroTrader.
+- **Executor default firm flipped breakout1 → hyro2.** Recipe unchanged (combo + ~15% vol + regime-gate +
+  maker), now on HyroTrader's trailing DD.

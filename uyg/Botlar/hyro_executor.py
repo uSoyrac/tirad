@@ -123,7 +123,7 @@ def risk_gate(equity, st, firm):
 def main():
     print(__doc__)
     ap = argparse.ArgumentParser()
-    ap.add_argument("--firm", choices=list(FIRMS), default="breakout1")
+    ap.add_argument("--firm", choices=list(FIRMS), default="hyro2")  # Breakout TR-yasaklı → HyroTrader
     ap.add_argument("--mode", choices=["pass", "funded"], default="pass")
     ap.add_argument("--execute", action="store_true", help="testnet'e gerçek emir (yoksa dry-run)")
     ap.add_argument("--maker", action="store_true", help="post-only limit emir (düşük fee)")
