@@ -170,8 +170,12 @@ def main():
 
     # --- TESTNET emir yerleştirme (her pozisyona reduce-only stop-loss) ---
     print("\nTESTNET emirleri gönderiliyor…")
+    ex.load_markets()                       # sembol filtresi için
     for s, side, notional, last, stop_px, _ in plan:
         sym = s if "/" in s else f"{s}/USDT:USDT"
+        if sym not in ex.markets:           # testnet'te listeli olmayan coinleri atla
+            print(f"  ⊘ {sym} testnet'te yok, atlandı")
+            continue
         try:
             amount = ex.amount_to_precision(sym, notional / last)
             ex.create_order(sym, "market", side, amount)
