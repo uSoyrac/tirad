@@ -451,6 +451,30 @@ expectancy OUT-OF-SAMPLE**. Not raw signal count, not in-sample return.
   low-funding / short high-funding) and is already in the backtest. The real cost to watch is
   TRADING COMMISSION (taker ~0.055% + spread) at high turnover, not funding.
 
+## PROP-PASS sizing RE-EXAMINED rigorously (`scripts/run_propfirm_sizing.py`) — VOL LEVEL is the only lever (confirmed)
+- The prior `run_propfirm_opt.py` compared 4 hand-coded policies vs a FIXED 12% baseline with
+  arbitrary VOL_HI/LO/BUFFER. This redo does it correctly: (1) FINE constant-vol sweep 5–30% to
+  find the true P(pass) ceiling and the vol that hits it; (2) each adaptive family (RAMP_UP,
+  DERISK, LOCK_NEAR, DAILY_GOV) gridded over its OWN params and compared at ITS best — so it's
+  best-adaptive vs best-constant, not adaptive vs a fixed baseline. Block-bootstrap (block=5,
+  25k paths) on the 2-sleeve combo residuals, 0.6 haircut (sim Sharpe ~1.0), IS/OOS/ALL pools,
+  BOTH HyroTrader cards (1-step +10%/DD−6%trail/daily−4%/min5d; 2-step +10%/+5%/DD−10%trail/daily−5%).
+- **Result: P(pass) is a HUMP in vol — rises to a peak then falls as breaches dominate.**
+  CONST ceilings (OOS / ALL-pool): **1-step 11% vol → 42.8% / 12% → 44.0%; 2-step 15% vol →
+  44.9% / 16% → 47.6%.** IS pools higher (1-step 47%, 2-step 53%) = the kind 2023-24 dispersion.
+- **No adaptive scheme beats best constant vol at its own optimum:** LOCK_NEAR is badly WORSE
+  (25–32% — stalling near target wastes paths); DERISK ties or loses; DAILY_GOV (intraday −2.5%
+  self-halt) = EXACTLY constant OOS (42.8/44.9, zero lift) and helps only IS where it lets you
+  run higher vol; RAMP_UP gives +0.7..+1.7 pt OOS = within Monte-Carlo noise (not a real lever).
+- **VERDICT (reconfirms the prior finding, now properly tested): the single best config is
+  CONSTANT vol at the level-optimum — ~11% (1-step) / ~15% (2-step) annual vol — P(pass) ~43–45%
+  OOS, ~44–48% on the conservative ALL pool. Path-shaping cannot push past it; the +10% target is
+  high vs a sim-Sharpe-~1.0 edge so you must compound at full risk, and the trailing DD floor rises
+  with the peak so buffer-building doesn't cut breach risk.** The only honest way past ~45% is more
+  edge or more blowup risk. Funded phase stays the OPPOSITE (low vol, lock/withdraw). ⚠️ EOD-only
+  understates intraday daily breaches (keep a real −3% intraday self-halt on the bot); 0.6 haircut;
+  survivorship-capped; favorable OOS window — 45% is the honest ceiling, not a guarantee.
+
 ## Raising the correct-decision rate — POOLED meta-label (DONE, `scripts/run_metalabel.py`)
 - Goal: increase the signal's hit rate / cull bad trades. (Reminder: for trend systems a
   low win rate is normal — the real target is EXPECTANCY; naive win-rate chasing via tight
@@ -693,6 +717,25 @@ literature estimates survivorship inflates crypto backtests ~15–22%/yr.
   4. Smart de-risk (buffer/lock/governor) HURTS pass — do NOT use in pass mode.
   Stacking (Breakout 1-step + ~15% vol + low-vol start) could push pass toward ~55-60%.
 - ⚠️ single-period (2023-26), survivorship, terciles noisy — direction credible, magnitude tentative.
+
+## PROP REGIME-TIMING v2 — full 3-sleeve book, more signals/thresholds (`scripts/run_propfirm_timing2.py`)
+- Extended the timing lever onto the VALIDATED production 3-sleeve book (crypto_trend + crypto_funding +
+  US-momentum, inv-vol train-fit), HyroTrader 2-step trailing, real calendar, 545 start days, all regime
+  signals causal (.shift(1), no look-ahead). Tested 9 signals × 4 thresholds + 5 combinations + by-year.
+- **Strongest green lights (consistent): LOW recent realized vol (vol20/vol40/vol-of-vol) and LOW book
+  drawdown-state (don't start the challenge while the book is mid-drawdown).** Best honest config =
+  **start only in the bookdd LOW-tercile (n=182): P(pass) 41.8% @10% vol / 69.2% @15% vol vs 21.7%/37.6%
+  unconditional → +20 / +32 pt.** vol20 low-tercile (the screener-implementable signal): 30.8%/44.0%
+  (+9/+6 pt), matching the v1 ~+9-11pt. Combination 'vol20 low-half AND mom20 top-half' → 62% @15% (+25pt).
+- **HONESTY (loud):** (1) the decile cuts (82-100% pass) are SMALL-SAMPLE artifacts concentrated in 2025
+  — do NOT quote them; the tercile (n=182) is the defensible number. (2) By-year: the timing rule helps
+  in EVERY year (2023 31→72%, 2024 3→15%, 2025 86→98%, 2026 2→7% @15%) so the DIRECTION is robust, but
+  the MAGNITUDE is dominated by 2025 being a kind regime. (3) Forward windows heavily overlap → effective
+  independent N far below 545. (4) EOD sim understates intraday −5% daily breach. (5) survivorship-capped.
+- **VERDICT: regime-entry-timing is a REAL, honest secondary pass-lever (~+10 to +30pt depending on vol
+  and signal), behind firm-structure and vol-level. Implementable rule: WAIT for a calm market (low recent
+  vol) AND don't start while the book is in drawdown, then begin the challenge.** Magnitude tentative;
+  direction durable. Reports -> reports_out/propfirm_timing2_vol{10,15}.md
 
 ## ★ OPTIMAL FUND BOT — firm head-to-head (`scripts/run_firm_compare.py`) — DECISION
 - Real-calendar pass simulation, combo @15% vol, regime-timed: HyroTrader 2-step trailing 42%/52%

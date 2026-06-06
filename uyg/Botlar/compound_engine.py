@@ -12,12 +12,43 @@ from __future__ import annotations
 
 
 
-# firma DD profilleri (track'e göre)
+# firma DD profilleri (track'e göre). trailing=zirveden takip (zor), statik=sabit taban (kolay).
 FIRMS = {
     "hyro2":     {"daily": 0.05, "total": 0.10, "trailing": True,  "label": "HyroTrader 2-step trailing"},
     "breakout1": {"daily": 0.04, "total": 0.06, "trailing": False, "label": "Breakout 1-step STATİK"},
-    "ttp_flex":  {"daily": 0.02, "total": 0.04, "trailing": False, "label": "Trade The Pool hisse Flex"},
+    "ttp_flex":  {"daily": 0.02, "total": 0.04, "trailing": False, "label": "Trade The Pool hisse Flex (+%6)"},
+    "ttp_safe":  {"daily": 0.03, "total": 0.06, "trailing": False, "label": "TTP +%8/static-%6 (EN GÜVENLİ geçiş)"},
+    "ttp_max":   {"daily": 0.05, "total": 0.10, "trailing": False, "label": "TTP +%10/static-%10 (EN YÜKSEK geçiş)"},
     "binance":   {"daily": 0.10, "total": 0.25, "trailing": True,  "label": "Binance kendi-sermaye"},
+}
+
+# ── PANEL-OPTİMAL CONFIG'LER (10-ajan paneli; block-bootstrap 25-30k yol, haircut ×0.6) ──
+# Kaynak: reports_out/{firm_montecarlo,propfirm_sizing,funded_survival,profit_extraction_*}.md
+# DÜRÜST: %100 geçiş İMKÂNSIZ — aşağıdakiler tavan. İki AYRI bot, iki AYRI edge:
+#   • Hisse (TTP, us_momentum, STATİK DD) geçişte KOLAY → ~%66-73 (IS≈OOS, rejim-sağlam).
+#   • Crypto (HyroTrader, combo, TRAILING DD) geçişte ZOR → ~%42-48 (trailing floor zirveyi kovalar).
+# Birinin rakamını diğerine yamama. Geçiş kolu için TTP'yi kullan; crypto'yu funded-survival'da yaşat.
+PASS_CONFIGS = {
+    "ttp_safe":   {"firm": "ttp_safe", "edge": "us_momentum", "target": 0.08, "vol": 0.10,
+                   "p_pass_full": 0.66, "p_pass_is": 0.69, "p_pass_oos": 0.67,
+                   "note": "EN GÜVENLİ: EOD ≤−%3 olasılığı düşük → intraday-uçurum riski ~0"},
+    "ttp_max":    {"firm": "ttp_max",  "edge": "us_momentum", "target": 0.10, "vol": 0.15,
+                   "p_pass_full": 0.73, "p_pass_is": 0.74, "p_pass_oos": 0.73,
+                   "note": "EN YÜKSEK geçiş ama EOD ≤−%3 olasılığı %34 → biraz daha riskli"},
+    "hyro_2step": {"firm": "hyro2",    "edge": "combo",       "target": 0.10, "vol": 0.15,
+                   "p_pass_full": 0.41, "p_pass_is": 0.35, "p_pass_oos": 0.48,
+                   "note": "Crypto, trailing-%10, +%10/+%5 2-faz — yapısal olarak ZOR"},
+}
+
+# Funded-survival: hedef YOK → 6+ ay batma, payout çek. COMPOUND ETME (trailing floor zirveyi
+# kovalar → normal geri-çekilme öldürür). Bankala-erken/küçük + −%3 intraday halt ZORUNLU.
+FUNDED_SURVIVAL = {
+    "hyro_2step": {"firm": "hyro2", "vol": 0.10, "bank_trigger": 0.03, "intraday_halt": 0.03, "split": 0.80,
+                   "p_survive_6mo_all": 0.967, "blowup_all": 0.033, "payout_5k_mo": 31, "payout_25k_mo": 153,
+                   "note": "ALL-pool muhafazakâr (OOS %95.3). Bankalama = hayatta-kalma kolu."},
+    "hyro_1step": {"firm": "breakout1", "vol": 0.07, "bank_trigger": 0.03, "intraday_halt": 0.03, "split": 0.80,
+                   "p_survive_6mo_all": 0.918, "blowup_all": 0.082, "payout_5k_mo": 22, "payout_25k_mo": 108,
+                   "note": "1-step trailing-%6 daha sıkı → daha düşük vol gerekir."},
 }
 
 
@@ -53,6 +84,24 @@ def regime_scale(low_vol, scale_in_turbulence=0.5):
     return 1.0 if low_vol else scale_in_turbulence
 
 
+def intraday_halt(equity, day_start_eq, halt=0.03):
+    """Intraday self-halt: gün-içi −halt%'e değerse o gün DUR (EOD daily-limite ASLA değme).
+    EOD-verinin gün-içi uçurumu hafife almasına karşı ZORUNLU emniyet. Sebep (str) ya da None."""
+    if day_start_eq and equity <= day_start_eq * (1 - halt):
+        return f"INTRADAY self-halt (−%{halt*100:.1f}) — gün kapandı"
+    return None
+
+
+def profit_bank(equity, baseline, trigger=0.03, split=0.80):
+    """Funded payout: equity, baseline×(1+trigger) üstündeyse tamponu çek (trader split'i alır).
+    TRAILING-DD'de bankalama yalnız gelir DEĞİL HAYATTA-KALMA kolu: realize-peak'i düşürür →
+    floor tırmanmayı durdurur. Döner: (çekilen_brüt, trader_eline_geçen, yeni_equity)."""
+    if not baseline or equity <= baseline * (1 + trigger):
+        return 0.0, 0.0, equity
+    gross = equity - baseline
+    return gross, gross * split, baseline
+
+
 def compound_note(equity, start_eq, kelly_frac):
     growth = (equity / start_eq - 1.0) * 100 if start_eq else 0.0
     return (f"COMPOUND: canlı equity ${equity:.0f} (başlangıç ${start_eq:.0f}, {growth:+.0f}%) üzerinden "
@@ -63,5 +112,15 @@ if __name__ == "__main__":   # hızlı kendi-testi
     assert kill_switch(940, 1000, 1000, "ttp_flex") and not kill_switch(985, 1000, 1000, "ttp_flex")
     assert fractional_kelly_gross(0.15, 0.25, 1.0) > 0
     assert kelly_risk_pct(0.015, 0.5) > 0 and kelly_risk_pct(0.015, 0.2) == 0.0
+    # intraday halt: −%3'e değince halt, üstünde temiz
+    assert intraday_halt(970, 1000, 0.03) and not intraday_halt(975, 1000, 0.03)
+    # profit_bank: +%3 tetik üstü çeker (split sonrası), altında çekmez
+    g, t, neweq = profit_bank(1050, 1000, 0.03, 0.80)
+    assert g == 50.0 and abs(t - 40.0) < 1e-9 and neweq == 1000
+    assert profit_bank(1020, 1000, 0.03)[0] == 0.0
+    # panel config'leri bütün mü
+    assert FIRMS["ttp_safe"]["total"] == 0.06 and not FIRMS["ttp_safe"]["trailing"]
+    assert PASS_CONFIGS["ttp_max"]["p_pass_full"] == 0.73
+    assert FUNDED_SURVIVAL["hyro_2step"]["p_survive_6mo_all"] == 0.967
     print("compound_engine self-test OK:", round(fractional_kelly_gross(0.15, 0.25, 1.0), 3),
-          round(kelly_risk_pct(0.015, 0.5), 4))
+          round(kelly_risk_pct(0.015, 0.5), 4), "| pass/funded configs loaded")
