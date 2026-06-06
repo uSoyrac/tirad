@@ -45,6 +45,8 @@ from bot.engine.base import (
 from bot.engine.confluence import ConfluenceScorer
 from bot.engine.filters import TradeFilter
 from bot.engine.market_structure import MarketStructureAnalyzer
+from bot.engine.abductive import AbductiveRegimeFilter
+from bot.engine.meta_regime import MetaRegimeAnalyzer
 from bot.engine.position_sizer import PositionSizer, SizingResult
 
 logger = logging.getLogger("bot.engine.signal")
@@ -148,6 +150,31 @@ class SignalEngine:
         if early_filter.blocked:
             logger.debug(f"{symbol}: Hard gate (erken) — {early_filter.reason}")
             return None
+
+        # ── Adım 3.4: Meta-Rejim Filtresi (Fizik/Termodinamik) ────
+        meta_res = MetaRegimeAnalyzer.analyze(df)
+        if meta_res["phase"] == "GAS":
+            logger.debug(f"{symbol}: Meta-Regime Gate — {meta_res['phase_reason']}")
+            return None
+        
+        is_ignition = meta_res["ignition"]
+
+        # ── Adım 3.5: Abductive Çoklu-Rejim Filtresi ──────────────
+        # Eğer Kinetik Şok (Ignition) yoksa normal trend/abductive check yap
+        if not is_ignition:
+            trend_dir_str = "BULLISH" if ms.trend == Trend.BULLISH else "BEARISH"
+            abductive_res = AbductiveRegimeFilter.evaluate(df, trend_dir_str)
+            if not abductive_res["valid"]:
+                logger.debug(f"{symbol}: Abductive Gate — {abductive_res['reason']}")
+                return None
+        else:
+            logger.debug(f"{symbol}: MOMENTUM IGNITION TESPİT EDİLDİ! Abductive bypass edildi.")
+            # İsteğe bağlı: Ignition yönüne göre ms.trend zorlanabilir. 
+            # Güvenlik için ms.trend ile uyumluysa kabul edelim.
+            if (meta_res["ignition_dir"] == "LONG" and ms.trend != Trend.BULLISH) or \
+               (meta_res["ignition_dir"] == "SHORT" and ms.trend != Trend.BEARISH):
+                logger.debug(f"{symbol}: Ignition yönü ({meta_res['ignition_dir']}) SMC Trendi ile uyuşmuyor. İptal.")
+                return None
 
         # ── Adım 4: OI + Funding Rate çek ────────────────────────
         oi_list, px_list, funding = self._fetch_oi_funding(symbol)
@@ -282,6 +309,7 @@ class SignalEngine:
             session          = cs.details.get("session", {}).get("current_session", "UNKNOWN"),
             funding_rate     = funding,
             timestamp        = datetime.now(timezone.utc).isoformat(),
+            is_ignition      = is_ignition,
         )
 
     # ──────────────────────────────────────────────────────────────────

@@ -124,9 +124,9 @@ def init_db(start_balance: float = START_BALANCE):
             sl_moved_be  INTEGER DEFAULT 0,
             status       TEXT    DEFAULT 'OPEN',
             pnl_usdt     REAL    DEFAULT 0,
-            opened_at    TEXT,
             closed_at    TEXT,
-            closed_price REAL    DEFAULT 0
+            closed_price REAL    DEFAULT 0,
+            is_ignition  INTEGER DEFAULT 0
         );
 
         CREATE TABLE IF NOT EXISTS paper_equity (
@@ -206,10 +206,9 @@ def save_paper_position(pos: dict) -> int:
     with _conn() as conn:
         cur = conn.execute("""
         INSERT INTO paper_positions
-        (symbol, direction, entry_price, quantity, sl_price,
          tp1_price, tp2_price, tp3_price, tp1_qty, tp2_qty, tp3_qty,
-         leverage, risk_usdt, notional, signal_score, opened_at)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+         leverage, risk_usdt, notional, signal_score, opened_at, is_ignition)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (
             pos["symbol"], pos["direction"], pos["entry_price"],
             pos["quantity"], pos["sl_price"],
@@ -218,6 +217,7 @@ def save_paper_position(pos: dict) -> int:
             pos.get("leverage", 3), pos.get("risk_usdt", 0),
             pos.get("notional", 0), pos.get("signal_score", 0),
             datetime.utcnow().isoformat(),
+            pos.get("is_ignition", 0)
         ))
         return cur.lastrowid
 
@@ -504,46 +504,51 @@ def check_open_positions(balance: float) -> float:
         if not candle:
             continue
 
-        hit = _simulate_candle(pos, candle)
-        if hit is None:
-            price = _last_price(symbol)
-            pnl_live = (price - pos["entry_price"]) / pos["entry_price"] * pos["notional"]
-            pnl_live = pnl_live if pos["direction"] == "LONG" else -pnl_live
-            pnl_s = f"+${pnl_live:+.2f}" if pnl_live >= 0 else f"${pnl_live:.2f}"
-            logger.info(f"  📊 #{pos_id} {symbol:12} AÇIK  ${price:,.4f}  PnL: {pnl_s}")
-            continue
+        # ULTIMATE SENTEZ: Statik TP devri bitti. Tüm işlemler "Balistik Çıkış (Maximizer)" ile yönetilir.
+        from live_scan import ohlcv
+        from bot.engine.maximizer import DynamicMaximizer
+        
+        try:
+            # Maximizer için geçmiş veriye ihtiyaç var
+            full_df = ohlcv(symbol, "4h", 150)
+            if not full_df.empty:
+                max_res = DynamicMaximizer.calculate_exit(
+                    full_df, 
+                    pos["entry_price"], 
+                    pos["direction"], 
+                    pos["sl_price"]
+                )
+                
+                if max_res["action"] == "EXIT":
+                    status = "CLOSED_DYNAMIC_EXIT"
+                    balance = _handle_close(pos_id, pos, max_res["new_sl"], balance, status)
+                    logger.info(f"  🌊 #{pos_id} {symbol} DİNAMİK SÖRF ÇIKIŞI: {max_res['reason']}")
+                    continue
+                    
+                elif max_res["action"] == "UPDATE":
+                    update_paper_position(pos_id, sl_price=max_res["new_sl"])
+                    pos = dict(get_open_paper_positions_by_id(pos_id) or pos)
+                    logger.info(f"  🏹 #{pos_id} {symbol} {max_res['reason']} -> Yeni SL: {max_res['new_sl']:.4f}")
+                    
+                # Stop patladı mı? (Güncel SL'ye göre)
+                if pos["direction"] == "LONG" and candle["low"] <= pos["sl_price"]:
+                    status = "CLOSED_TRAIL_HIT"
+                    balance = _handle_close(pos_id, pos, pos["sl_price"], balance, status)
+                    continue
+                elif pos["direction"] == "SHORT" and candle["high"] >= pos["sl_price"]:
+                    status = "CLOSED_TRAIL_HIT"
+                    balance = _handle_close(pos_id, pos, pos["sl_price"], balance, status)
+                    continue
+                    
+                # Hala açıksa live PnL yazdır
+                price = _last_price(symbol)
+                pnl_live = (price - pos["entry_price"]) / pos["entry_price"] * pos["notional"]
+                pnl_live = pnl_live if pos["direction"] == "LONG" else -pnl_live
+                pnl_s = f"+${pnl_live:+.2f}" if pnl_live >= 0 else f"${pnl_live:.2f}"
+                logger.info(f"  📊 #{pos_id} {symbol:12} AÇIK  ${price:,.4f}  PnL: {pnl_s}")
 
-        # TP1
-        if hit == "TP1":
-            balance = _handle_tp1(pos_id, pos, pos["tp1_price"], balance)
-            # Pozisyonu yeni duruma göre yenile
-            pos = dict(get_open_paper_positions_by_id(pos_id) or pos)
-            continue
-
-        # TP2 (TP1 daha önce vurulmuş olmalı)
-        if hit == "TP2":
-            if not pos["tp1_hit"]:
-                balance = _handle_tp1(pos_id, pos, pos["tp1_price"], balance)
-                pos = dict(get_open_paper_positions_by_id(pos_id) or pos)
-            balance = _handle_tp2(pos_id, pos, pos["tp2_price"], balance)
-            pos = dict(get_open_paper_positions_by_id(pos_id) or pos)
-            continue
-
-        # TP3 → pozisyonu kapat
-        if hit == "TP3":
-            if not pos["tp1_hit"]:
-                balance = _handle_tp1(pos_id, pos, pos["tp1_price"], balance)
-                pos = dict(get_open_paper_positions_by_id(pos_id) or pos)
-            if not pos["tp2_hit"]:
-                balance = _handle_tp2(pos_id, pos, pos["tp2_price"], balance)
-                pos = dict(get_open_paper_positions_by_id(pos_id) or pos)
-            balance = _handle_close(pos_id, pos, pos["tp3_price"], balance, "CLOSED_WIN_TP3")
-            continue
-
-        # SL
-        if hit == "SL":
-            status = "CLOSED_BE" if pos["sl_moved_be"] else "CLOSED_LOSS"
-            balance = _handle_close(pos_id, pos, pos["sl_price"], balance, status)
+        except Exception as e:
+            logger.error(f"Maximizer Hatası ({symbol}): {e}")
 
         time.sleep(0.2)
 
@@ -649,6 +654,7 @@ def scan_and_open(balance: float) -> tuple:
             "risk_usdt":    calc["risk_usdt"],
             "notional":     calc["notional"],
             "signal_score": score,
+            "is_ignition":  1 if sig.get("is_ignition", False) else 0,
         })
         record_equity(balance, 0, "OPEN", symbol)
 

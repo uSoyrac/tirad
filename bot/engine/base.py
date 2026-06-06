@@ -206,6 +206,7 @@ class SignalResult:
     session:          str                = "UNKNOWN"
     funding_rate:     Optional[float]    = None
     timestamp:        str                = ""
+    is_ignition:      bool               = False
 
 
 # ══════════════════════════════════════════════════════════════════════
