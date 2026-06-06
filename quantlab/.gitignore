@@ -1,0 +1,10 @@
+.venv/
+data_cache/
+reports_out/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+data_cache_exp/
+_sleeves3.parquet
+reports_out/_sleeves3.parquet

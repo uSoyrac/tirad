@@ -1,0 +1,36 @@
+V23 Ultimate AI Feature Importance
+===================================
+        Feature  Importance
+      dayofweek    0.039848
+        atr_pct    0.037409
+        is_asia    0.037053
+ dist_ema50_pct    0.035552
+          is_ny    0.034051
+dist_ema200_pct    0.032970
+       bb_width    0.031259
+       bb_pct_b    0.031059
+         atr_14    0.030925
+    macd_signal    0.030884
+ dist_ema20_pct    0.030849
+     vol_sma_20    0.030835
+         rsi_21    0.030671
+            obv    0.030484
+         adx_14    0.029905
+          ret_1    0.029736
+      macd_line    0.029334
+vol_ratio_lag_3    0.028811
+          ret_3    0.028767
+      vol_ratio    0.028760
+           hour    0.028616
+      is_london    0.028475
+      macd_hist    0.028394
+        stoch_k    0.028091
+vol_ratio_lag_1    0.028066
+          ret_2    0.028007
+vol_ratio_lag_2    0.027805
+        stoch_d    0.027742
+      body_size    0.027616
+         rsi_14    0.027579
+     lower_wick    0.027098
+     upper_wick    0.027096
+        obv_roc    0.026249

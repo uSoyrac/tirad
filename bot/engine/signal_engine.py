@@ -103,6 +103,10 @@ class SignalEngine:
         self._confluence = None
         self._filter     = TradeFilter(min_confirmations=min_confirmations)
         self._sizer      = PositionSizer(mode=mode)
+        
+        # XGBoost ML Model (Lazy load)
+        self._xgb_model = None
+        self._xgb_features = None
 
     # ──────────────────────────────────────────────────────────────────
     def analyze(
@@ -166,6 +170,63 @@ class SignalEngine:
         if self.use_llm:
             llm_boost = self._llm_boost(symbol, ms, cs, social_data)
             final_score = min(10.0, max(0.0, final_score + llm_boost))
+
+        # ── Adım 7.5: V21 XGBoost AI Override (Zorunlu) ───────────
+        try:
+            import xgboost as xgb
+            import ta
+            
+            # Anti-repainting: Hesaplamalar için veriyi hazırla
+            df_ml = df.copy()
+            df_ml['adx'] = ta.trend.ADXIndicator(df_ml['high'], df_ml['low'], df_ml['close'], window=14).adx()
+            df_ml['vol_sma'] = df_ml['volume'].rolling(20).mean()
+            df_ml['vol_ratio'] = df_ml['volume'] / df_ml['vol_sma']
+            df_ml['rsi'] = ta.momentum.RSIIndicator(df_ml['close'], window=14).rsi()
+            macd = ta.trend.MACD(df_ml['close'], window_slow=26, window_fast=12, window_sign=9)
+            df_ml['macd_hist'] = macd.macd_diff()
+            df_ml['ema_250'] = ta.trend.EMAIndicator(df_ml['close'], window=250).ema_indicator()
+            df_ml['atr'] = ta.volatility.AverageTrueRange(df_ml['high'], df_ml['low'], df_ml['close'], window=14).average_true_range()
+            df_ml['atr_pct'] = (df_ml['atr'] / df_ml['close']) * 100
+            df_ml['dist_ema250_pct'] = ((df_ml['close'] - df_ml['ema_250']) / df_ml['ema_250']) * 100
+            
+            # Sadece kapanmış son mumu al (Anti-Repainting)
+            last_closed = df_ml.iloc[-2]
+            trend_val = 1 if ms.trend == Trend.BULLISH else -1 if ms.trend == Trend.BEARISH else 0
+            
+            features_dict = {
+                "adx": [last_closed["adx"]],
+                "vol_ratio": [last_closed["vol_ratio"]],
+                "rsi": [last_closed["rsi"]],
+                "macd_hist": [last_closed["macd_hist"]],
+                "atr_pct": [last_closed["atr_pct"]],
+                "dist_ema250_pct": [last_closed["dist_ema250_pct"]],
+                "trend_dir": [trend_val]
+            }
+            
+            # Lazy Load Model
+            if self._xgb_model is None:
+                self._xgb_model = xgb.XGBClassifier()
+                self._xgb_model.load_model("bot/engine/v20_xgb_model.json")
+                import json
+                with open("bot/engine/v20_xgb_meta.json", "r") as f:
+                    meta = json.load(f)
+                self._xgb_features = meta["features"]
+                
+            X_live = pd.DataFrame(features_dict)[self._xgb_features]
+            win_prob = self._xgb_model.predict_proba(X_live)[0][1]
+            
+            logger.info(f"{symbol}: XGBoost Kazanma Olasılığı: %{win_prob*100:.1f}")
+            
+            # V21 ACCELERATOR THRESHOLD (0.44)
+            if win_prob < 0.44:
+                logger.debug(f"{symbol}: AI Override — Düşük Olasılık ({win_prob:.2f} < 0.44). Reddedildi.")
+                return None
+            else:
+                # Yapay Zeka onayladıysa skoru artır
+                final_score += 1.0
+                
+        except Exception as e:
+            logger.error(f"{symbol}: XGBoost ML Entegrasyon Hatası: {e}")
 
         final_score = round(final_score, 2)
 

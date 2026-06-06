@@ -37,3 +37,23 @@ Thumbs.db
 
 # Playwright
 playwright/.local-chromium/
+
+# TIRAD — büyük veri (fetch script'leriyle yeniden üretilebilir) + transient
+uyg/src/mktdata/
+uyg/src/microdata/
+uyg/src/funddata/
+*.db
+optimal_*.json
+news_gdelt.csv
+sigcache_*/
+uyg/src/mktdata_1h/
+bot/engine/data_*
+bot/engine/features_*
+uyg/src/metricsdata/
+uyg/src/basis_cache/
+uyg/src/xfunddata/
+uyg/Botlar/catboost_info/
+uyg/Botlar/shadow_state.json
+uyg/src/mktdata_forex_1d/
+uyg/src/mktdata_forex_4h/
+uyg/Botlar/_state/

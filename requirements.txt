@@ -10,7 +10,7 @@ yfinance==0.2.36
 requests==2.31.0
 
 # Technical Analysis
-pandas-ta==0.3.14b0
+ta
 scipy==1.11.4
 
 # Web Scraping
@@ -46,3 +46,5 @@ backtesting==0.3.3
 # Utilities
 tqdm==4.66.1
 colorlog==6.8.0
+xgboost
+scikit-learn

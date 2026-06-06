@@ -1,0 +1,46 @@
+{
+    "balance": 10000.0,
+    "open_positions": [
+        {
+            "symbol": "BTC/USDT",
+            "entry_time": "2026-06-01T01:35:18.898889",
+            "entry_price": 73855.0,
+            "tp_price": 74551.71089389999,
+            "sl_price": 73436.97346366,
+            "position_size": 35335.07735974512,
+            "risk_usd": 200.0,
+            "win_prob": 0.6169445514678955
+        },
+        {
+            "symbol": "ETH/USDT",
+            "entry_time": "2026-06-01T01:35:19.212055",
+            "entry_price": 2014.83,
+            "tp_price": 2039.9658975664277,
+            "sl_price": 1999.7484614601433,
+            "position_size": 26719.15726204356,
+            "risk_usd": 200.0,
+            "win_prob": 0.5970577001571655
+        },
+        {
+            "symbol": "BNB/USDT",
+            "entry_time": "2026-06-01T01:35:19.835987",
+            "entry_price": 710.97,
+            "tp_price": 730.8755232832524,
+            "sl_price": 699.0266860300486,
+            "position_size": 11905.740764895783,
+            "risk_usd": 200.0,
+            "win_prob": 0.5491188168525696
+        },
+        {
+            "symbol": "XRP/USDT",
+            "entry_time": "2026-06-01T01:35:20.149134",
+            "entry_price": 1.3373,
+            "tp_price": 1.3568370899718467,
+            "sl_price": 1.3255777460168918,
+            "position_size": 22816.431070800394,
+            "risk_usd": 200.0,
+            "win_prob": 0.5631766319274902
+        }
+    ],
+    "trade_history": []
+}

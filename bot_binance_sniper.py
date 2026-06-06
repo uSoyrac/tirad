@@ -14,7 +14,12 @@ Kullanım:
 import argparse
 import logging
 import sys
-from datetime import datetime
+import time
+from pathlib import Path
+
+# Yol ayarları (Claude'un compound_engine modülüne erişim için)
+sys.path.append(str(Path(__file__).resolve().parent / "uyg/06_HAZIR_BOTLAR_RAPORLAR/botlar"))
+import compound_engine as ce
 
 import ccxt
 from bot.engine.signal_engine import SignalEngine
@@ -73,22 +78,29 @@ def print_sniper_signal(result):
     print(f"{B}{'-' * 60}{R}")
 
 def main():
-    parser = argparse.ArgumentParser(description="Binance Top 20 Sniper Bot")
-    parser.add_argument("--balance", type=float, default=1000.0, help="Sermaye miktarı (USDT)")
+    parser = argparse.ArgumentParser(description="Binance Sniper Bot (Compound Mode)")
+    parser.add_argument("--balance", type=float, default=1000.0, help="Binance başlangıç bakiyesi (USDT)")
     parser.add_argument("--limit", type=int, default=20, help="Taranacak coin sayısı")
-    parser.add_argument("--min-score", type=float, default=6.5, help="İşleme girmek için min skor")
+    parser.add_argument("--min-score", type=float, default=6.5, help="Minimum sinyal skoru")
+    parser.add_argument("--kelly", type=float, default=0.25, help="Kelly büyüme çarpanı (Örn: 0.25)")
     args = parser.parse_args()
 
-    print(f"\n{'-'*50}\n🚀 ALPHA İSTİHBARAT: BINANCE SNIPER BOT\n{'-'*50}")
+    print(f"\n{'-'*50}\n🚀 ALPHA İSTİHBARAT: BINANCE SNIPER BOT (COMPOUND)\n{'-'*50}")
     
+    # Binance'e özel compound boyutlandırması
+    vol_target = 0.15 # Hedeflenen aylık/yıllık volatilite
+    gross_leverage = ce.fractional_kelly_gross(target_vol=vol_target, kelly_frac=args.kelly, conviction=1.0)
+    print(ce.compound_note(args.balance, args.balance, args.kelly))
+    print(f"[*] Dinamik Kaldıraç Çarpanı (Gross): {gross_leverage:.2f}x")
+
     # 1. Hacimli Coinleri Çek
     symbols = get_top_binance_futures(limit=args.limit)
     
     # 2. Motoru STANDARD modda başlat (Kâr optimizasyonu için)
     engine = SignalEngine(
         min_score=args.min_score,
-        balance=args.balance,
-        mode="STANDARD"  # Sınırlandırma yok
+        balance=args.balance * gross_leverage, # Compound edilmiş sanal sermaye
+        mode="STANDARD"
     )
     
     # 3. Taramayı başlat

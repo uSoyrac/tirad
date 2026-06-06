@@ -1,0 +1,35 @@
+{
+    "features": [
+        "rsi_14",
+        "rsi_21",
+        "macd_line",
+        "macd_signal",
+        "macd_hist",
+        "stoch_k",
+        "atr_14",
+        "atr_pct",
+        "bb_width",
+        "bb_pct_b",
+        "is_squeeze",
+        "dist_ema20_pct",
+        "dist_ema50_pct",
+        "dist_ema200_pct",
+        "vol_climax",
+        "vol_ratio",
+        "hour",
+        "dayofweek",
+        "is_london",
+        "is_ny",
+        "is_asia"
+    ],
+    "best_params": {
+        "learning_rate": 0.05,
+        "max_depth": 3,
+        "n_estimators": 100,
+        "subsample": 0.8
+    },
+    "metrics": {
+        "accuracy": 0.4640083816097621,
+        "precision": 0.3618122038487574
+    }
+}

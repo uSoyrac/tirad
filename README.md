@@ -1,3 +1,10 @@
+> ## 🧠 → **[İSTİHBARAT MERKEZİ: INTELLIGENCE.md](INTELLIGENCE.md)**
+> Tüm kantitatif araştırmanın (~40 deney) dürüst, walk-forward doğrulanmış özeti **buradadır.**
+> Doğrulanmış sistem: `uyg/src/compound_engine.py` (+%31 CAGR OOS, MaxDD %17 — ama DSR %31, paper-trade şart).
+> ⚠️ Aşağıdaki eski başlık sayıları (WR %81.7 / Sharpe 38.12) **abartılı/eski** — gerçek için INTELLIGENCE.md'ye bak.
+
+---
+
 # ALPHA İSTİHBARAT SİSTEMİ v3
 
 **Kripto Futures için SMC/ICT + Kurumsal Göstergeler + OOP Sinyal Motoru.**

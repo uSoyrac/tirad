@@ -1,0 +1,48 @@
+{
+    "features": [
+        "rsi_14",
+        "rsi_21",
+        "macd_line",
+        "macd_signal",
+        "macd_hist",
+        "stoch_k",
+        "stoch_d",
+        "atr_14",
+        "atr_pct",
+        "bb_width",
+        "bb_pct_b",
+        "adx_14",
+        "dist_ema20_pct",
+        "dist_ema50_pct",
+        "dist_ema200_pct",
+        "vol_sma_20",
+        "vol_ratio",
+        "obv",
+        "obv_roc",
+        "body_size",
+        "upper_wick",
+        "lower_wick",
+        "hour",
+        "dayofweek",
+        "is_london",
+        "is_ny",
+        "is_asia",
+        "ret_1",
+        "vol_ratio_lag_1",
+        "ret_2",
+        "vol_ratio_lag_2",
+        "ret_3",
+        "vol_ratio_lag_3"
+    ],
+    "best_params": {
+        "colsample_bytree": 0.9,
+        "learning_rate": 0.1,
+        "max_depth": 7,
+        "n_estimators": 300,
+        "subsample": 0.8
+    },
+    "metrics": {
+        "accuracy": 0.6460885956644675,
+        "precision": 0.22598024543549836
+    }
+}
