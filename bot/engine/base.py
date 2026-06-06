@@ -46,6 +46,8 @@ class Action(str, enum.Enum):
     SELL        = "SELL"
     STRONG_SELL = "STRONG_SELL"
     BLOCKED     = "BLOCKED"
+    TREND_HUNTER_LONG  = "TREND_HUNTER_LONG"
+    TREND_HUNTER_SHORT = "TREND_HUNTER_SHORT"
 
 
 # ══════════════════════════════════════════════════════════════════════

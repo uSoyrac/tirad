@@ -184,11 +184,12 @@ def atr_fn(df,p=14):
     return tr.rolling(p).mean()
 
 # ─── Yapısal Analiz ──────────────────────────────────────────
-def swing_pivots(df, lb=10):
-    """Swing high/low tespit."""
+def swing_pivots(df, lb=5):
+    """Swing high/low tespit (Anti-repainting: lb kadar sonra kesinleşir)."""
     sh=pd.Series(False,index=df.index); sl=pd.Series(False,index=df.index)
-    for i in range(lb,len(df)-1):
-        wh=df["high"].iloc[i-lb:i+1]; wl=df["low"].iloc[i-lb:i+1]
+    if len(df) < 2*lb + 1: return sh, sl
+    for i in range(lb,len(df)-lb):
+        wh=df["high"].iloc[i-lb:i+lb+1]; wl=df["low"].iloc[i-lb:i+lb+1]
         if df["high"].iloc[i]==wh.max(): sh.iloc[i]=True
         if df["low"].iloc[i]==wl.min(): sl.iloc[i]=True
     return sh,sl

@@ -1,0 +1,1 @@
+{"features": ["adx", "vol_ratio", "rsi", "macd_hist", "atr_pct", "dist_ema250_pct", "trend_dir"], "threshold": 0.48000000000000015, "expected_win_rate": 0.7407407407407407}

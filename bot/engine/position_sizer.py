@@ -101,10 +101,12 @@ class PositionSizer:
         base_risk_pct:  float = _BASE_RISK_PCT,
         max_positions:  int   = 4,
         kelly_fraction: float = _KELLY_FRACTION,
+        mode:           str   = "STANDARD",  # "STANDARD", "PROP_EVAL", "PROP_FUNDED"
     ) -> None:
         self.base_risk_pct  = base_risk_pct
         self.max_positions  = max_positions
         self.kelly_fraction = kelly_fraction
+        self.mode           = mode
 
     # ──────────────────────────────────────────────────────────────────
     def calculate(
@@ -166,20 +168,39 @@ class PositionSizer:
                 expected_value=ev,
             )
 
+        # ── Prop Firm Mode Korumaları ─────────────────────────────
+        current_base_risk = self.base_risk_pct
+        current_kelly     = kelly_f
+        
+        if self.mode == "PROP_EVAL":
+            # Sermaye koruma odaklı: riski yarıya indir, Kelly'yi çok muhafazakar yap.
+            current_base_risk = self.base_risk_pct * 0.5
+            current_kelly     = kelly_f * 0.5
+        elif self.mode == "PROP_FUNDED":
+            # Asimetrik kar modu: Daha yüksek R:R hedefi, Kelly'i serbest bırak.
+            # Burada 'house money' kullanıldığı varsayılır.
+            current_kelly     = kelly_f * 1.5
+
         # ── Dinamik risk yüzdesi ──────────────────────────────────
         # Açık pozisyon başına risk hafifçe azalır
         position_penalty = open_count * 0.002
-        kelly_boost      = kelly_f * self.base_risk_pct
+        kelly_boost      = current_kelly * current_base_risk
 
-        risk_pct = self.base_risk_pct + kelly_boost - position_penalty
-        risk_pct = max(_MIN_RISK_PCT, min(_MAX_RISK_PCT, risk_pct))
+        risk_pct = current_base_risk + kelly_boost - position_penalty
+        
+        # Prop Eval'da max risk strict %1.5, Funded'da %5'e kadar çıkabilir.
+        max_allowed_risk = 0.015 if self.mode == "PROP_EVAL" else (0.050 if self.mode == "PROP_FUNDED" else _MAX_RISK_PCT)
+        risk_pct = max(_MIN_RISK_PCT, min(max_allowed_risk, risk_pct))
 
         risk_usdt = balance * risk_pct
 
         # ── Kaldıraç ──────────────────────────────────────────────
         notional_needed = risk_usdt / sl_dist
         leverage        = math.ceil(notional_needed / balance)
-        leverage        = max(1, min(leverage, _MAX_LEVERAGE))
+        
+        # Prop Eval'da max kaldıraç 2x, Funded'da 10x
+        max_lev_mode = 2 if self.mode == "PROP_EVAL" else (10 if self.mode == "PROP_FUNDED" else _MAX_LEVERAGE)
+        leverage        = max(1, min(leverage, max_lev_mode))
         leverage        = min(leverage, self._max_leverage_by_score(signal_score))
 
         notional = balance * leverage

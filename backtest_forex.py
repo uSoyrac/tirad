@@ -31,6 +31,7 @@ from datetime import datetime
 
 import numpy as np
 import pandas as pd
+import yfinance as yf
 
 warnings.filterwarnings("ignore")
 
@@ -57,14 +58,13 @@ from live_scan import (
 #  PARAMETRELER
 # ═══════════════════════════════════════════════════════════════════════
 
-SYMBOLS    = ["BTC/USDT", "ETH/USDT", "SOL/USDT", "BNB/USDT",
-              "AVAX/USDT", "LINK/USDT", "DOT/USDT", "XRP/USDT"]
+SYMBOLS    = ["EURUSD=X", "GBPUSD=X", "USDJPY=X", "AUDUSD=X", "USDCAD=X", "USDCHF=X", "NZDUSD=X"]
 TIMEFRAME  = "4h"
 BARS       = 2500
 WARMUP     = 150        # Isınma + ATR/EMA hesabı için yeterli geçmiş
 
 # ── Sinyal eşiği ──────────────────────────────────────────────────────
-MIN_SCORE  = 4.5        # Yükseltildi: 3.8 → 4.5 (kalitesiz sinyalleri eler)
+MIN_SCORE  = 4.0        # Yükseltildi: 3.8 → 4.5 (kalitesiz sinyalleri eler)
 
 # ── Pozisyon / Risk ───────────────────────────────────────────────────
 RISK_PCT   = 0.02       # İşlem başına %2 risk
@@ -84,8 +84,8 @@ TP2_CLOSE  = 0.35   # TP2'de %35 kapat
 TP3_CLOSE  = 0.25   # TP3'te kalan %25 kapat
 
 # ── Maliyet modeli ────────────────────────────────────────────────────
-COMMISSION = 0.0004   # %0.04 taker fee (Binance Futures)
-SLIPPAGE   = 0.0005   # %0.05 slippage (giriş + çıkış)
+COMMISSION = 0.0   # %0.04 taker fee (Binance Futures)
+SLIPPAGE   = 0.0001   # %0.05 slippage (giriş + çıkış)
 ROUND_TRIP = (COMMISSION + SLIPPAGE) * 2   # ~%0.18 total
 
 # ── Filtreler ──────────────────────────────────────────────────────────
@@ -116,14 +116,8 @@ def _ema(series: pd.Series, span: int) -> float:
 
 
 def _vol_ok(df_slice: pd.DataFrame) -> bool:
-    """Giriş barının hacmi 20-bar ortalamasının üzerinde mi?"""
-    try:
-        v = df_slice["volume"]
-        avg = float(v.iloc[-21:-1].mean())
-        cur = float(v.iloc[-1])
-        return avg > 0 and cur >= avg * VOL_MULT
-    except Exception:
-        return True  # Hata = filtre atla
+    """Forex for yfinance has 0 volume, bypass"""
+    return True
 
 
 def _trend_1d(df_slice: pd.DataFrame) -> str:
@@ -440,14 +434,8 @@ def backtest_symbol_v2(symbol: str, df_full: pd.DataFrame) -> dict:
                         t_trail_sl     = t_entry + t_atr * TRAIL_ATR
 
             if exited:
-                # Dinamik slippage (Volatility Slippage Multiplier)
-                base_slippage_pct = t_atr / t_entry if t_entry > 0 else 0
-                vol_penalty = max(1.0, (base_slippage_pct / 0.02) ** 1.5)
-                dynamic_slippage = SLIPPAGE * vol_penalty
-                current_round_trip = (COMMISSION + dynamic_slippage) * 2
-
                 # Komisyon + slippage uygula
-                net_r = pnl_r - current_round_trip / sl_dist if sl_dist > 0 else pnl_r
+                net_r = pnl_r - ROUND_TRIP / sl_dist if sl_dist > 0 else pnl_r
                 dollar_pnl = equity[-1] * RISK_PCT * net_r
                 new_eq     = equity[-1] + dollar_pnl
                 equity.append(new_eq)
@@ -665,7 +653,7 @@ def _pbar(v: float, mx: float, col: str = CY, width: int = 18) -> str:
 
 def print_symbol_row(r: dict) -> None:
     s  = r["summary"]
-    sy = r["symbol"].replace("/USDT", "")
+    sy = r["symbol"].replace("=X", "")
     n  = s["n"]
     if n == 0:
         print(f"  {sy:6}  {dim('—')}")
@@ -845,6 +833,23 @@ def print_trading_plan(port: dict) -> None:
 """)
 
 
+
+def forex_ohlcv(sym, tf="4h", lim=2500):
+    try:
+        # fetch up to 730 days of 1h data to get max history
+        df = yf.Ticker(sym).history(period="730d", interval="1h", auto_adjust=True)
+        if df.empty: return pd.DataFrame()
+        df.index = pd.to_datetime(df.index, utc=True).tz_localize(None)
+        df.columns = df.columns.str.lower()
+        df = df[["open", "high", "low", "close", "volume"]]
+        if tf == "4h":
+            df = df.resample("4h").agg({"open":"first", "high":"max", "low":"min", "close":"last", "volume":"sum"}).dropna()
+        return df.iloc[:-1].astype(float)
+    except Exception as e:
+        print(f"Error fetching {sym}: {e}")
+        return pd.DataFrame()
+
+# ═══════════════════════════════════════════════════════════════════════
 # ═══════════════════════════════════════════════════════════════════════
 #  ANA ÇALIŞMA
 # ═══════════════════════════════════════════════════════════════════════
@@ -876,7 +881,7 @@ def main() -> None:
     for sym in SYMBOLS:
         sys.stdout.write(f"  ⬇  {sym:14} ...")
         sys.stdout.flush()
-        df = ohlcv(sym, TIMEFRAME, BARS)
+        df = forex_ohlcv(sym, TIMEFRAME, BARS)
         if df.empty or len(df) < WARMUP + 100:
             print(f"  {bad('HATA — atlandı')}")
             continue
@@ -1035,7 +1040,7 @@ def main() -> None:
     for i, r in enumerate(sorted_r):
         s = r["summary"]
         if s["n"] == 0: continue
-        sym   = r["symbol"].replace("/USDT", "")
+        sym   = r["symbol"].replace("=X", "")
         rc2   = ok if s["total_ret"] > 0 else bad
         ret_s = f"{s['total_ret']:>+.0f}%"
         avg_r_s = f"{s['avg_r']:+.2f}"

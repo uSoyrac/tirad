@@ -90,17 +90,19 @@ class SignalEngine:
         atr_sl_mult:        float = 1.5,
         balance:            float = 0.0,
         open_count:         int   = 0,
+        mode:               str   = "STANDARD",
     ) -> None:
         self.min_score         = min_score
         self.use_llm           = use_llm
         self.balance           = balance
         self.open_count        = open_count
+        self.mode              = mode
 
         # Alt bileşenler — her sembol için yeniden kullanılır
         self._structure  = None   # Lazy, sembol başına oluştur
         self._confluence = None
         self._filter     = TradeFilter(min_confirmations=min_confirmations)
-        self._sizer      = PositionSizer()
+        self._sizer      = PositionSizer(mode=mode)
 
     # ──────────────────────────────────────────────────────────────────
     def analyze(
@@ -192,6 +194,12 @@ class SignalEngine:
 
         # ── Adım 10: Action kararı ────────────────────────────────
         action = self._decide_action(final_score, ms.trend)
+
+        # ── Trend Hunter Override ─────────────────────────────────
+        hunter_action = self._trend_hunter_check(df, ms)
+        if hunter_action != Action.HOLD:
+            action = hunter_action
+            final_score = 10.0  # Trend Hunter sinyali kesinlik belirtir
 
         # ── Sonuç paketi ──────────────────────────────────────────
         return SignalResult(
@@ -299,6 +307,37 @@ class SignalEngine:
             if score >= _BUY_SCORE:
                 return Action.SELL
             return Action.HOLD
+        return Action.HOLD
+
+    # ──────────────────────────────────────────────────────────────────
+    @staticmethod
+    def _trend_hunter_check(df: pd.DataFrame, ms: MarketStructure) -> Action:
+        """
+        Trend Hunter (Macro Breakout) tetikleyicisi.
+        ATR ve hacim aynı anda tarihi ortalamanın üzerine fırlarsa pusu modundan çıkar.
+        """
+        try:
+            if len(df) < 50: return Action.HOLD
+            
+            from live_scan import atr_fn
+            atr = atr_fn(df, 14)
+            current_atr = float(atr.iloc[-2])
+            avg_atr = float(atr.iloc[-22:-2].mean())
+            
+            v = df["volume"]
+            current_vol = float(v.iloc[-2])
+            avg_vol = float(v.iloc[-22:-2].mean())
+            
+            # Şartlar: ATR > 2.5x, Hacim > 3.0x
+            if avg_atr > 0 and current_atr > avg_atr * 2.5 and avg_vol > 0 and current_vol > avg_vol * 3.0:
+                o = float(df["open"].iloc[-2])
+                c = float(df["close"].iloc[-2])
+                if c > o and ms.trend == Trend.BULLISH:
+                    return Action.TREND_HUNTER_LONG
+                elif c < o and ms.trend == Trend.BEARISH:
+                    return Action.TREND_HUNTER_SHORT
+        except Exception:
+            pass
         return Action.HOLD
 
     # ──────────────────────────────────────────────────────────────────

@@ -94,6 +94,19 @@ def main() -> int:
         help="Minimum confluence onay sayısı (varsayılan: 2)",
     )
     parser.add_argument(
+        "--mode",
+        type=str,
+        default="STANDARD",
+        choices=["STANDARD", "PROP_EVAL", "PROP_FUNDED"],
+        help="Çalışma modu: STANDARD, PROP_EVAL, PROP_FUNDED",
+    )
+    parser.add_argument(
+        "--max-dd",
+        type=float,
+        default=0.0,
+        help="Günlük Max Drawdown limiti (Örn: 4.0). Aşılırsa işlem durdurulur.",
+    )
+    parser.add_argument(
         "--verbose",
         action="store_true",
         help="Debug loglarını göster",
@@ -121,7 +134,18 @@ def main() -> int:
         min_confirmations = args.min_confirmations,
         use_llm           = args.llm,
         balance           = args.balance,
+        mode              = args.mode,
     )
+
+    # ── Prop Firm Max DD Kontrolü ─────────────────────────────────────
+    if args.mode in ["PROP_EVAL", "PROP_FUNDED"] and args.max_dd > 0:
+        # Gerçek uygulamada bu veri veritabanından / aracı kurumdan alınır.
+        current_daily_dd = 0.0 # Placeholder
+        if current_daily_dd >= args.max_dd:
+            print(f"\n[DURDURULDU] Günlük Max Drawdown ({args.max_dd}%) aşıldı! Prop Firm hesabı riske atılamaz.\n")
+            return 1
+        else:
+            print(f"  [PROP MODE: {args.mode}] Günlük DD izleniyor (Max: {args.max_dd}%)")
 
     # ── Tek sembol ────────────────────────────────────────────────────
     if args.symbol:

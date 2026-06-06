@@ -1,0 +1,7 @@
+ccxt
+python-dotenv
+schedule
+xgboost
+pandas
+ta
+scikit-learn
